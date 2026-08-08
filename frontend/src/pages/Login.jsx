@@ -8,7 +8,7 @@ import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
+    password: ''
   })
 
   const { email, password } = formData
@@ -18,19 +18,18 @@ const Login = () => {
 
   const { user, isLoading, isError, isSuccess, message } = useSelector((state) => state.auth)
 
-  // Reads environment variable for Vite or CRA dynamically
-  const googleClientId = 
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || 
-    process.env.REACT_APP_GOOGLE_CLIENT_ID;
+  const googleClientId =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) ||
+    process.env.REACT_APP_GOOGLE_CLIENT_ID
 
   useEffect(() => {
     if (isError) {
-      toast.error(message);
+      toast.error(message)
       dispatch(reset())
     }
 
     if (isSuccess || user) {
-      navigate('/');
+      navigate('/')
       dispatch(reset())
     }
   }, [user, isError, isSuccess, message, navigate, dispatch])
@@ -52,7 +51,7 @@ const Login = () => {
   }
 
   const handleGoogleSuccess = (credentialResponse) => {
-    if (credentialResponse.credential) {
+    if (credentialResponse?.credential) {
       dispatch(googleLogin(credentialResponse.credential))
     } else {
       toast.error('Something went wrong. Please try again.')
@@ -72,7 +71,9 @@ const Login = () => {
       <div className='w-full max-w-md bg-white p-6 sm:p-10 border border-gray-200 rounded-2xl shadow-xl'>
         <div className='text-center mb-8'>
           <h2 className='text-xs font-black uppercase tracking-[0.3em] text-teal-600 mb-2'>AI Interviewer</h2>
-          <h1 className='text-3xl sm:text-4xl font-black text-gray-900 leading-tight'>Welcome <span className='text-teal-500'>Back</span></h1>
+          <h1 className='text-3xl sm:text-4xl font-black text-gray-900 leading-tight'>
+            Welcome <span className='text-teal-500'>Back</span>
+          </h1>
           <p className='text-gray-500 mt-3 text-sm sm:text-base px-2'>
             Sign In to sharpen your technical skills.
           </p>
@@ -81,26 +82,48 @@ const Login = () => {
         <form onSubmit={onSubmit} className='grid grid-cols-1 gap-4'>
           <div className='space-y-1'>
             <label className='text-[10px] font-bold uppercase text-gray-400 ml-1'>Email</label>
-            <input type="email" name="email" value={email} className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all' placeholder='mehtab@gmail.com' onChange={onChange} required />
+            <input
+              type="email"
+              name="email"
+              value={email}
+              className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all'
+              placeholder='mehtab@gmail.com'
+              onChange={onChange}
+              required
+            />
           </div>
 
           <div className='space-y-1'>
             <label className='text-[10px] font-bold uppercase text-gray-400 ml-1'>Password</label>
-            <input type="password" name="password" value={password} className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all' placeholder='********' onChange={onChange} required />
+            <input
+              type="password"
+              name="password"
+              value={password}
+              className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all'
+              placeholder='********'
+              onChange={onChange}
+              required
+            />
           </div>
 
-          <button type="submit" className='w-full bg-teal-600 text-white p-3.5 rounded-xl font-bold hover:bg-teal-700 transition-all shadow-lg shadow-teal-100 mt-4 active:scale-[0.98]'>Login to Account</button>
+          <button
+            type="submit"
+            className='w-full bg-teal-600 text-white p-3.5 rounded-xl font-bold hover:bg-teal-700 transition-all shadow-lg shadow-teal-100 mt-4 active:scale-[0.98]'
+          >
+            Login to Account
+          </button>
         </form>
 
         <div className="my-8 flex items-center">
           <div className="flex-grow border-t border-gray-300"></div>
-          <span className="mx-4 text-gray-400 text-[10px] font-black tracking-widest uppercase">Social Login</span>
+          <span className="mx-4 text-gray-400 text-[10px] font-black tracking-widest uppercase">
+            Social Login
+          </span>
           <div className="flex-grow border-t border-gray-300"></div>
         </div>
 
         <div className="w-full flex items-center justify-center">
-          {/* ✅ FIXED: Passed clientId prop to GoogleOAuthProvider */}
-          <GoogleOAuthProvider clientId={googleClientId}>
+          <GoogleOAuthProvider clientId={googleClientId || ''}>
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={() => toast.error('Google login failed')}
@@ -114,9 +137,11 @@ const Login = () => {
         </div>
 
         <p className="mt-8 text-center text-sm text-gray-500">
-          New here? <Link to="/register" className="text-teal-600 font-bold hover:underline">Create an account</Link>
+          New here?{' '}
+          <Link to="/register" className="text-teal-600 font-bold hover:underline">
+            Create an account
+          </Link>
         </p>
-
       </div>
     </div>
   )
