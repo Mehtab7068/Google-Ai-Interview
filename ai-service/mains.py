@@ -467,12 +467,12 @@
 #     # Ensure hot reload is disabled to prevent multiple local Whisper initialization pipelines
 #     uvicorn.run("main:app", host="0.0.0.0", port=AI_SERVICE_PORT, reload=False)
 
-
 import uvicorn
 import os
 import json
 import tempfile
-import asyncio
+import time
+import mimetypes
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -480,14 +480,13 @@ from dotenv import load_dotenv
 from typing import Optional
 from google import genai
 from google.genai import types
-import whisper
-import time
+
 load_dotenv()
 
 AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", 8000))
 GEMINI_MODEL_NAME = "gemini-2.5-flash"
 
-app = FastAPI(title="AI Interviewer Microservice (Cloud-Powered)", version="2.0")
+app = FastAPI(title="AI Interviewer Cloud Microservice", version="2.0")
 
 origins = ["*"]
 app.add_middleware(
@@ -501,20 +500,9 @@ app.add_middleware(
 # Initialize the Gemini Client safely
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
-    print("⚠️ WARNING: GEMINI_API_KEY is missing from your .env configuration file!")
+    print("⚠️ WARNING: GEMINI_API_KEY is missing from your environment variables!")
 
 client = genai.Client(api_key=api_key)
-
-WHISPER_MODEL = None
-
-try:
-    print("🚀 Loading Whisper Model (base.en)...")
-    # Using FP16=False down the line enforces CPU-safe math if no GPU is found
-    WHISPER_MODEL = whisper.load_model("tiny.en")
-    print("✅ Whisper Model Loaded Successfully")
-except Exception as e:
-    print("❌ Error while loading Whisper Model:")
-    print(e)
 
 
 class QuestionRequest(BaseModel):
@@ -547,7 +535,7 @@ class EvaluationResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "Hello from AI Interviewer Cloud Microservice !", "model": GEMINI_MODEL_NAME}
+    return {"message": "Hello from AI Interviewer Cloud Microservice!", "model": GEMINI_MODEL_NAME}
 
 
 @app.post("/generate-questions", response_model=QuestionResponse)
@@ -602,52 +590,7 @@ async def generate_questions(request: QuestionRequest):
     except Exception as e:
         print(f"❌ Error in /generate-questions: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
 
-# @app.post("/transcribe")
-# async def transcribe_audio(file: UploadFile = File(...)):
-#     if not WHISPER_MODEL:
-#         raise HTTPException(status_code=503, detail="Local Whisper Model instance is uninitialized.")
-        
-#     temp_audio_path = None
-#     try:
-#         # Step 1: Detect file suffix safely from upload metadata
-#         suffix = os.path.splitext(file.filename)[1] or ".wav"
-        
-#         # Step 2: Stream file directly to disk without breaking the async loop
-#         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-#             temp_audio_path = tmp.name
-#             # Read chunks asynchronously to prevent server blockages
-#             while content := await file.read(1024 * 1024):  # 1MB chunks
-#                 tmp.write(content)
-        
-#         # Step 3: Offload Whisper model computation cleanly
-#         loop = asyncio.get_event_loop()
-        
-#         # We specify fp16=False to ensure compatibility across non-GPU setups without freezing threads
-#         # result = await loop.run_in_executor(
-#         #     None, 
-#         #     lambda: WHISPER_MODEL.transcribe(temp_audio_path, fp16=False)
-#         # )
-#         start = time.time()
-#         result = await loop.run_in_executor(None, lambda: WHISPER_MODEL.transcribe(temp_audio_path, fp16=False))
-#         print(f"⏱️ Whisper took {time.time() - start:.2f}s")
-                
-#         return {"transcription": result["text"].strip()}
-
-#     except Exception as e:
-#         print(f"❌ Error in /transcribe: {str(e)}")
-#         raise HTTPException(status_code=500, detail=str(e))
-        
-#     finally:
-#         # Step 4: Securely wipe the temp file allocations
-#         if temp_audio_path and os.path.exists(temp_audio_path):
-#             try:
-#                 os.remove(temp_audio_path)
-#             except Exception:
-#                 pass
-
-import mimetypes
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
@@ -714,6 +657,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
             except Exception as disk_err:
                 print(f"⚠️ Failed to delete temp file: {disk_err}")
 
+
 @app.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(request: EvaluationRequest):
     try:
@@ -762,7 +706,7 @@ async def evaluate(request: EvaluationRequest):
     except Exception as e:
         print(f"❌ Error in /evaluate: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-        
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=AI_SERVICE_PORT, reload=False)
