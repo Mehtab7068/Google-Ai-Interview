@@ -76,16 +76,17 @@ function InterviewRunner() {
   const streamRef = useRef(null);
   const timerIntervalRef = useRef(null);
 
-  // Prevent fetching API with invalid sessionId
+  // Guard against invalid sessionId and prevent duplicate API loops
   useEffect(() => {
     if (!sessionId || sessionId === 'undefined') {
-      toast.error("Invalid session ID.");
-      navigate('/');
+      toast.error("Invalid session ID. Redirecting to dashboard...");
+      navigate('/', { replace: true });
       return;
     }
     dispatch(getSessionById(sessionId));
-  }, [dispatch, sessionId, navigate]);
+  }, [sessionId, dispatch, navigate]);
 
+  // Automatically select default language based on role
   useEffect(() => {
     if (activeSession?.role) {
       const detectedLang = ROLE_LANGUAGE_MAP[activeSession.role] || "plaintext";
@@ -93,7 +94,7 @@ function InterviewRunner() {
     }
   }, [activeSession?.role]);
 
-  // Save drafts safely
+  // Persist code drafts to localStorage safely
   useEffect(() => {
     if (!sessionId || sessionId === 'undefined') return;
     const serializableDrafts = {};
@@ -103,7 +104,7 @@ function InterviewRunner() {
     localStorage.setItem(`drafts_${sessionId}`, JSON.stringify(serializableDrafts));
   }, [drafts, sessionId]);
 
-  // Clean up recording hardware on unmount
+  // Cleanup media streams on unmount
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -115,9 +116,9 @@ function InterviewRunner() {
     };
   }, []);
 
-  // Safe fallback array for questions
-  const questions = activeSession?.questions || [];
-  const currentQuestion = questions[currentQuestionIndex];
+  // Safe question getters
+  const questions = Array.isArray(activeSession?.questions) ? activeSession.questions : [];
+  const currentQuestion = questions[currentQuestionIndex] || null;
 
   const isReduxSubmitted = currentQuestion?.isSubmitted === true;
   const isLocallySubmitted = submittedLocal[currentQuestionIndex] === true;
@@ -133,9 +134,7 @@ function InterviewRunner() {
       'audio/aac',
     ];
     for (const type of types) {
-      if (MediaRecorder.isTypeSupported(type)) {
-        return type;
-      }
+      if (MediaRecorder.isTypeSupported(type)) return type;
     }
     return '';
   };
@@ -298,18 +297,18 @@ function InterviewRunner() {
       .catch(() => toast.error("Could not finish session. AI is working on it."));
   };
 
-  if (!activeSession) {
-    return <div className="text-center py-20 text-slate-400">Loading Session...</div>;
+  if (!sessionId || sessionId === 'undefined') {
+    return null;
   }
 
-  // Handle case when activeSession exists but questions are still generating
-  if (questions.length === 0) {
+  // Handle loading and question generation states
+  if (!activeSession || activeSession.status === 'AI_GENERATING_QUESTIONS' || questions.length === 0) {
     return (
       <div className="max-w-xl mx-auto my-20 p-8 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <h2 className="text-xl font-bold text-slate-800">Generating Questions...</h2>
+        <h2 className="text-xl font-bold text-slate-800">Preparing Your Interview</h2>
         <p className="text-sm text-slate-500 mt-2">
-          {message || "AI is preparing tailored questions for your session. Please wait..."}
+          {message || "AI is generating tailored questions for your session. Please wait..."}
         </p>
       </div>
     );

@@ -1,187 +1,148 @@
-// frontend/src/features/sessions/sessionSlice.js
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import axios from 'axios'
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
 
-// Remove trailing slash to prevent double-slash route errors
-const API_URL = `${import.meta.env.VITE_API_URL}/sessions`
+const API_URL = 'https://google-ai-interview-express-backend.onrender.com/api/sessions';
 
-const api = axios.create({ baseURL: API_URL })
-
-api.interceptors.request.use((request) => {
-  const user = JSON.parse(localStorage.getItem('user'))
-  if (user && user.token) {
-    request.headers.Authorization = `Bearer ${user.token}`
-  }
-  return request
-})
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+export const getSessionById = createAsyncThunk(
+  'sessions/getById',
+  async (sessionId, thunkAPI) => {
+    try {
+      if (!sessionId || sessionId === 'undefined') {
+        return thunkAPI.rejectWithValue('Invalid Session ID');
+      }
+      const token = thunkAPI.getState().auth?.user?.token;
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get(`${API_URL}/${sessionId}`, config);
+      return response.data;
+    } catch (error) {
+      const message = error.response?.data?.message || error.message;
+      return thunkAPI.rejectWithValue(message);
     }
-    return Promise.reject(error)
   }
-)
-
-const initialState = {
-  sessions: [],
-  activeSession: null,
-  isGenerating: false,
-  isError: false,
-  isLoading: false,
-  message: ''
-}
-
-export const getSessions = createAsyncThunk('sessions/getAll', async (_, thunkAPI) => {
-  try {
-    const response = await api.get('/')
-    return response.data
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || error.toString()
-    return thunkAPI.rejectWithValue(message)
-  }
-})
-
-export const createSession = createAsyncThunk('sessions/create', async (sessionData, thunkAPI) => {
-  try {
-    const response = await api.post('/', sessionData)
-    return response.data
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || error.toString()
-    return thunkAPI.rejectWithValue(message)
-  }
-})
-
-export const getSessionById = createAsyncThunk('sessions/getOne', async (sessionId, thunkAPI) => {
-  try {
-    const response = await api.get(`/${sessionId}`)
-    return response.data
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || error.toString()
-    return thunkAPI.rejectWithValue(message)
-  }
-})
-
-export const deleteSession = createAsyncThunk('sessions/delete', async (sessionId, thunkAPI) => {
-  try {
-    const response = await api.delete(`/${sessionId}`)
-    return response.data.id
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || error.toString()
-    return thunkAPI.rejectWithValue(message)
-  }
-})
+);
 
 export const submitAnswer = createAsyncThunk(
   'sessions/submitAnswer',
   async ({ sessionId, formData }, thunkAPI) => {
     try {
-      // Uses configured 'api' instance dynamically instead of hardcoded localhost
-      const response = await api.post(`/${sessionId}/submit-answer`, formData)
-      return response.data
+      const token = thunkAPI.getState().auth?.user?.token;
+      const config = {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          ...(token && { Authorization: `Bearer ${token}` })
+        }
+      };
+      const response = await axios.post(`${API_URL}/${sessionId}/answer`, formData, config);
+      return response.data;
     } catch (error) {
-      const message = error.response?.data?.message || error.message || error.toString()
-      return thunkAPI.rejectWithValue(message)
+      const message = error.response?.data?.message || error.message;
+      return thunkAPI.rejectWithValue(message);
     }
   }
-)
+);
 
-export const endSession = createAsyncThunk('sessions/endSession', async (sessionId, thunkAPI) => {
-  try {
-    const response = await api.post(`/${sessionId}/end`)
-    return response.data
-  } catch (error) {
-    const message = error.response?.data?.message || error.message || error.toString()
-    return thunkAPI.rejectWithValue(message)
+export const endSession = createAsyncThunk(
+  'sessions/endSession',
+  async (sessionId, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth?.user?.token;
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.post(`${API_URL}/${sessionId}/end`, {}, config);
+      return response.data;
+    } catch (error) {
+      const message = error.response?.data?.message || error.message;
+      return thunkAPI.rejectWithValue(message);
+    }
   }
-})
+);
+
+const initialState = {
+  activeSession: null,
+  isLoading: false,
+  isError: false,
+  message: ''
+};
 
 export const sessionSlice = createSlice({
   name: 'sessions',
   initialState,
   reducers: {
-    reset: (state) => {
-      state.isError = false
-      state.message = ''
-      state.isLoading = false
-      state.isGenerating = false
+    resetSessionState: (state) => {
+      state.activeSession = null;
+      state.isLoading = false;
+      state.isError = false;
+      state.message = '';
     },
-    socketUpdateSession: (state, action) => {
-      const { sessionId, status, message, session } = action.payload
-      state.message = message
-
-      if (status === 'QUESTIONS_READY' || status === 'GENERATION_FAILED') {
-        state.isGenerating = false
+    // Socket listener dispatch target
+    setRealtimeSessionUpdate: (state, action) => {
+      if (state.activeSession) {
+        state.activeSession = {
+          ...state.activeSession,
+          ...action.payload,
+          // Preserve questions array cleanly without making it undefined
+          questions: action.payload?.questions || state.activeSession.questions || []
+        };
+      } else {
+        state.activeSession = {
+          ...action.payload,
+          questions: action.payload?.questions || []
+        };
       }
-
-      if (session && state.activeSession && state.activeSession._id === sessionId) {
-        state.activeSession.questions = state.activeSession.questions.map((currentQ, index) => {
-          const incomingQ = session.questions[index]
-          if (!incomingQ) return currentQ
-          if (incomingQ.isEvaluated) return incomingQ
-          if (currentQ.isSubmitted && !incomingQ.isSubmitted) return currentQ
-          return incomingQ
-        })
-        state.activeSession.overallScore = session.overallScore
-        state.activeSession.status = session.status
-        state.activeSession.metrics = session.metrics
+      if (action.payload?.message) {
+        state.message = action.payload.message;
       }
-    },
-    setActiveSession: (state, action) => {
-      state.activeSession = action.payload
     }
   },
   extraReducers: (builder) => {
     builder
-      .addCase(getSessions.pending, (state) => {
-        state.isLoading = true
-      })
-      .addCase(getSessions.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.sessions = action.payload
-      })
-      .addCase(getSessions.rejected, (state, action) => {
-        state.isLoading = false
-        state.isError = true
-        state.message = action.payload
-      })
-      .addCase(createSession.pending, (state) => {
-        state.isLoading = true
-        state.isGenerating = true
-        state.activeSession = null
-      })
-      .addCase(createSession.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.activeSession = action.payload // Now correctly stores newly created session
-      })
-      .addCase(createSession.rejected, (state, action) => {
-        state.isLoading = false
-        state.isError = true
-        state.isGenerating = false
-        state.message = action.payload
+      // Get Session
+      .addCase(getSessionById.pending, (state) => {
+        state.isLoading = true;
       })
       .addCase(getSessionById.fulfilled, (state, action) => {
-        state.activeSession = action.payload
+        state.isLoading = false;
+        state.activeSession = {
+          ...action.payload,
+          questions: Array.isArray(action.payload?.questions) ? action.payload.questions : []
+        };
       })
-      .addCase(deleteSession.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.sessions = state.sessions.filter((s) => s._id !== action.payload)
+      .addCase(getSessionById.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+      // Submit Answer
+      .addCase(submitAnswer.pending, (state) => {
+        state.isLoading = true;
       })
       .addCase(submitAnswer.fulfilled, (state, action) => {
-        state.isLoading = false
-        if (action.payload && Array.isArray(action.payload.questions)) {
-          state.activeSession = action.payload
+        state.isLoading = false;
+        if (state.activeSession) {
+          state.activeSession = {
+            ...action.payload,
+            questions: Array.isArray(action.payload?.questions) ? action.payload.questions : state.activeSession.questions
+          };
         }
       })
       .addCase(submitAnswer.rejected, (state, action) => {
-        state.isError = true
-        state.message = action.payload
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
       })
+      // End Session
+      .addCase(endSession.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(endSession.fulfilled, (state, action) => {
+        state.isLoading = false;
+      })
+      .addCase(endSession.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      });
   }
-})
+});
 
-export const { reset, socketUpdateSession, setActiveSession } = sessionSlice.actions
-export default sessionSlice.reducer
+export const { resetSessionState, setRealtimeSessionUpdate } = sessionSlice.actions;
+export default sessionSlice.reducer;
