@@ -133,17 +133,6 @@ function InterviewRunner() {
     };
   }, []);
 
-  // Safe question getters
-  const questions = Array.isArray(activeSession?.questions) ? activeSession.questions : [];
-  const currentQuestion = questions[currentQuestionIndex] || null;
-  const isGeneratingQuestions = ['pending', 'processing', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status);
-  const hasFailed = activeSession?.status === 'failed';
-
-  const isReduxSubmitted = currentQuestion?.isSubmitted === true;
-  const isLocallySubmitted = submittedLocal[currentQuestionIndex] === true;
-  const isQuestionLocked = isReduxSubmitted || isLocallySubmitted;
-  const isProcessing = isQuestionLocked && !currentQuestion?.isEvaluated;
-
   const getSupportedMimeType = () => {
     const types = [
       'audio/webm;codecs=opus',
