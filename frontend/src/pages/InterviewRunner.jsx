@@ -86,18 +86,23 @@ function InterviewRunner() {
     dispatch(getSessionById(sessionId));
   }, [sessionId, dispatch, navigate]);
 
+  const questions = Array.isArray(activeSession?.questions) ? activeSession.questions : [];
+  const currentQuestion = questions[currentQuestionIndex] || null;
+  const isGeneratingQuestions = ['pending', 'processing', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status);
+  const hasFailed = activeSession?.status === 'failed';
+
   // Refresh session details while question generation is still active and no questions exist yet.
   useEffect(() => {
     if (!sessionId) return;
     if (!activeSession || questions.length > 0) return;
-    if (!['pending', 'processing', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status)) return;
+    if (!isGeneratingQuestions) return;
 
     const interval = setInterval(() => {
       dispatch(getSessionById(sessionId));
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [sessionId, activeSession, questions.length, dispatch]);
+  }, [sessionId, activeSession, questions.length, isGeneratingQuestions, dispatch]);
 
   // Automatically select default language based on role
   useEffect(() => {
