@@ -124,76 +124,260 @@ function InterviewRunner() {
     }));
   };
 
+  // const startRecording = async () => {
+  //   if (isQuestionLocked) return;
+  //   try {
+  //     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  //     streamRef.current = stream;
+  //     mediaRecorderRef.current = new MediaRecorder(stream);
+
+  //     // Clear old array records cleanly before recording starts
+  //     audioChunksRef.current = [];
+
+  //     mediaRecorderRef.current.ondataavailable = (e) => {
+  //       if (e.data && e.data.size > 0) {
+  //         audioChunksRef.current.push(e.data);
+  //       }
+  //     };
+
+  //     mediaRecorderRef.current.onstop = () => {
+  //       // Create valid blob from the fresh chunks array
+  //       const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+  //       setDrafts(prev => ({
+  //         ...prev,
+  //         [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: blob }
+  //       }));
+  //     };
+
+  //     mediaRecorderRef.current.start(1000);
+  //     setIsRecording(true);
+  //     setRecordingTime(0);
+  //     timerIntervalRef.current = setInterval(() => setRecordingTime(p => p + 1), 1000);
+  //   } catch (err) {
+  //     toast.error("Microphone denied.");
+  //   }
+  // };
+
+  // const stopRecording = () => {
+  //   if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+  //     mediaRecorderRef.current.stop();
+  //     streamRef.current?.getTracks().forEach(track => track.stop());
+  //     clearInterval(timerIntervalRef.current);
+  //     setIsRecording(false);
+  //   }
+  // };
+
+  // Helper to dynamically detect supported audio MIME types across Chrome, Firefox & Safari
+  const getSupportedMimeType = () => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/aac',
+    ];
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return ''; // Fallback to browser default
+  };
+
   const startRecording = async () => {
     if (isQuestionLocked) return;
+
     try {
+      // 1. Clean up any existing stream before starting a new one
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      mediaRecorderRef.current = new MediaRecorder(stream);
+
+      // 2. Select a mimeType supported by the candidate's browser (Safari/iOS support)
+      const mimeType = getSupportedMimeType();
+      const options = mimeType ? { mimeType } : {};
+
+      mediaRecorderRef.current = new MediaRecorder(stream, options);
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setDrafts(prev => ({
+        // 3. Use the recorder's actual MIME type for the Blob
+        const actualType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: actualType });
+
+        // Determine correct file extension for backend (e.g. .mp4 vs .webm)
+        const extension = actualType.includes('mp4') || actualType.includes('aac') ? 'mp4' : 'webm';
+        const audioFile = new File([blob], `answer_${currentQuestionIndex}.${extension}`, { type: actualType });
+
+        setDrafts((prev) => ({
           ...prev,
-          [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: blob }
+          [currentQuestionIndex]: {
+            ...prev[currentQuestionIndex],
+            audioBlob: blob,
+            audioFile: audioFile // Store pre-formatted File object ready for FormData
+          },
         }));
       };
 
+      // Collect chunks every 1000ms
       mediaRecorderRef.current.start(1000);
       setIsRecording(true);
       setRecordingTime(0);
-      timerIntervalRef.current = setInterval(() => setRecordingTime(p => p + 1), 1000);
+
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = setInterval(() => setRecordingTime((p) => p + 1), 1000);
     } catch (err) {
-      toast.error("Microphone denied.");
+      console.error("Microphone Access Error:", err);
+      toast.error("Microphone denied or not supported.");
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current?.state !== 'inactive') {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
-      streamRef.current?.getTracks().forEach(track => track.stop());
-      clearInterval(timerIntervalRef.current);
-      setIsRecording(false);
     }
+
+    // Stop hardware tracks immediately
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    clearInterval(timerIntervalRef.current);
+    setIsRecording(false);
   };
+
+  // const handleSubmitAnswer = async () => {
+  //   if (isQuestionLocked) return;
+
+  //   // 1. If currently recording, stop it immediately
+  //   if (isRecording) {
+  //     stopRecording();
+  //     // Tiny forced absolute delay to allow the MediaRecorder hardware pipeline to push remaining chunk frames
+  //     await new Promise((resolve) => setTimeout(resolve, 150));
+  //   }
+
+  //   const draft = drafts[currentQuestionIndex];
+  //   const code = draft?.code || '';
+  //   let audio = draft?.audioBlob;
+
+  //   // 2. Fallback to raw data directly from the reference collector
+  //   if (!audio && audioChunksRef.current && audioChunksRef.current.length > 0) {
+  //     audio = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+  //   }
+
+  //   if (!code && !audio) {
+  //     toast.warning("Please provide code or an audio answer.");
+  //     return;
+  //   }
+
+  //   // Lock UI instantly
+  //   setSubmittedLocal(prev => ({ ...prev, [currentQuestionIndex]: true }));
+
+  //   const formData = new FormData();
+  //   formData.append('questionIndex', currentQuestionIndex);
+  //   if (code) formData.append('code', code);
+
+  //   // 3. Append the file payload accurately
+  //   if (audio && audio.size > 0) {
+  //     formData.append('audioFile', audio, 'answer.webm');
+  //   } else {
+  //     // If there is truly no audio, don't pass an empty file—let the backend know nothing was recorded
+  //     console.log("No verbal recording provided; sending text/code-only payload.");
+  //   }
+
+  //   // Send Request
+  //   dispatch(submitAnswer({ sessionId, formData }))
+  //     .unwrap()
+  //     .then(() => {
+  //       // Clear chunks after a successful submit to prevent leak crossovers into next question
+  //       audioChunksRef.current = [];
+  //     })
+  //     .catch((err) => {
+  //       setSubmittedLocal(prev => ({ ...prev, [currentQuestionIndex]: false }));
+  //       toast.error("Submission failed. Please try again.");
+  //     });
+  // };
+
 
   const handleSubmitAnswer = async () => {
     if (isQuestionLocked) return;
-    if (isRecording) stopRecording();
+
+    // 1. If currently recording, stop it cleanly
+    if (isRecording) {
+      stopRecording();
+      // Allow the MediaRecorder hardware pipeline to flush remaining chunk frames
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
 
     const draft = drafts[currentQuestionIndex];
     const code = draft?.code || '';
-    const audio = draft?.audioBlob;
+    let audio = draft?.audioBlob;
 
-    if (!code && !audio) {
+    // 2. Fallback to raw data directly from the reference collector
+    if (!audio && audioChunksRef.current && audioChunksRef.current.length > 0) {
+      // Detect recording mimeType if available, fallback to audio/webm
+      const type = mediaRecorderRef.current?.mimeType || 'audio/webm';
+      audio = new Blob(audioChunksRef.current, { type });
+    }
+
+    if (!code && (!audio || audio.size === 0)) {
       toast.warning("Please provide code or an audio answer.");
       return;
     }
 
-    // ✅ 1. OPTIMISTIC UPDATE: Lock UI instantly
-    setSubmittedLocal(prev => ({ ...prev, [currentQuestionIndex]: true }));
+    // Lock UI instantly
+    setSubmittedLocal((prev) => ({ ...prev, [currentQuestionIndex]: true }));
 
     const formData = new FormData();
     formData.append('questionIndex', currentQuestionIndex);
     if (code) formData.append('code', code);
-    if (audio) formData.append('audioFile', audio, 'answer.webm');
 
-    // ✅ 2. Send Request
+    // 3. Append the file payload accurately
+    if (audio && audio.size > 0) {
+      // Determine the real file extension (.mp4, .webm, etc.)
+      const extension = audio.type.includes('mp4') || audio.type.includes('aac') ? 'mp4' : 'webm';
+
+      // IMPORTANT: Parameter key MUST be 'file' to match FastAPI's UploadFile parameter!
+      formData.append('file', audio, `answer_${currentQuestionIndex}.${extension}`);
+    } else {
+      console.log("No verbal recording provided; sending code-only payload.");
+    }
+
+    // 4. Send Request
     dispatch(submitAnswer({ sessionId, formData }))
       .unwrap()
+      .then(() => {
+        // Clear chunks after successful submission
+        audioChunksRef.current = [];
+      })
       .catch((err) => {
-        // If backend fails, UNLOCK so user can try again
-        setSubmittedLocal(prev => ({ ...prev, [currentQuestionIndex]: false }));
+        setSubmittedLocal((prev) => ({ ...prev, [currentQuestionIndex]: false }));
         toast.error("Submission failed. Please try again.");
       });
   };
 
+  // 1. Calculate if ANY question in the entire session is currently evaluating
+  const isAnyQuestionProcessing = activeSession?.questions?.some((q, i) => {
+    return (q.isSubmitted || submittedLocal[i]) && !q.isEvaluated;
+  });
+
   const handleFinishInterview = () => {
+    // 2. Alert them early on the client-side instead of breaking silently via a catch-block
+    if (isAnyQuestionProcessing) {
+      toast.warning("Please wait a moment. AI is still finishing its analysis on your final answers.");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to finish?")) return;
 
     dispatch(endSession(sessionId))

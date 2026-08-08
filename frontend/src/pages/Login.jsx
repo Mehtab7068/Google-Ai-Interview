@@ -3,10 +3,9 @@ import { useSelector, useDispatch } from 'react-redux'
 import { login, googleLogin, reset } from '../features/auth/authSlice'
 import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { GoogleLogin } from '@react-oauth/google'
-import { GoogleOAuthProvider } from '@react-oauth/google'
-const Login = () => {
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 
+const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -19,6 +18,11 @@ const Login = () => {
 
   const { user, isLoading, isError, isSuccess, message } = useSelector((state) => state.auth)
 
+  // Reads environment variable for Vite or CRA dynamically
+  const googleClientId = 
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || 
+    process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
   useEffect(() => {
     if (isError) {
       toast.error(message);
@@ -29,11 +33,7 @@ const Login = () => {
       navigate('/');
       dispatch(reset())
     }
-
-
   }, [user, isError, isSuccess, message, navigate, dispatch])
-
-
 
   const onChange = (e) => {
     setFormData((prevState) => ({
@@ -44,14 +44,11 @@ const Login = () => {
 
   const onSubmit = (e) => {
     e.preventDefault()
-
     const userData = {
-
       email,
       password
     }
     dispatch(login(userData))
-
   }
 
   const handleGoogleSuccess = (credentialResponse) => {
@@ -72,7 +69,7 @@ const Login = () => {
 
   return (
     <div className='flex justify-center items-center min-h-[90vh] bg-gray-50 sm:px-6 py-10'>
-      <div className='w-full max-w-md bg-white p-6 sm:p-10 border border-gray-200 rounded-2xl shadow-xl' >
+      <div className='w-full max-w-md bg-white p-6 sm:p-10 border border-gray-200 rounded-2xl shadow-xl'>
         <div className='text-center mb-8'>
           <h2 className='text-xs font-black uppercase tracking-[0.3em] text-teal-600 mb-2'>AI Interviewer</h2>
           <h1 className='text-3xl sm:text-4xl font-black text-gray-900 leading-tight'>Welcome <span className='text-teal-500'>Back</span></h1>
@@ -82,19 +79,15 @@ const Login = () => {
         </div>
 
         <form onSubmit={onSubmit} className='grid grid-cols-1 gap-4'>
-
           <div className='space-y-1'>
             <label className='text-[10px] font-bold uppercase text-gray-400 ml-1'>Email</label>
-            <input type="email" name="email" value={email} className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all ' placeholder='siddhant@gmail.com' onChange={onChange} required />
-
+            <input type="email" name="email" value={email} className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all' placeholder='mehtab@gmail.com' onChange={onChange} required />
           </div>
 
           <div className='space-y-1'>
             <label className='text-[10px] font-bold uppercase text-gray-400 ml-1'>Password</label>
-            <input type="password" name="password" value={password} className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all ' placeholder='********' onChange={onChange} required />
-
+            <input type="password" name="password" value={password} className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all' placeholder='********' onChange={onChange} required />
           </div>
-
 
           <button type="submit" className='w-full bg-teal-600 text-white p-3.5 rounded-xl font-bold hover:bg-teal-700 transition-all shadow-lg shadow-teal-100 mt-4 active:scale-[0.98]'>Login to Account</button>
         </form>
@@ -106,16 +99,17 @@ const Login = () => {
         </div>
 
         <div className="w-full flex items-center justify-center">
-            <GoogleOAuthProvider>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => toast.error('Google login failed')}
-            theme="outline"
-            size="large"
-            width="100%"
-            text="continue_with"
-            shape="circle"
-          />
+          {/* ✅ FIXED: Passed clientId prop to GoogleOAuthProvider */}
+          <GoogleOAuthProvider clientId={googleClientId}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Google login failed')}
+              theme="outline"
+              size="large"
+              width="100%"
+              text="continue_with"
+              shape="circle"
+            />
           </GoogleOAuthProvider>
         </div>
 
@@ -125,8 +119,6 @@ const Login = () => {
 
       </div>
     </div>
-
-
   )
 }
 

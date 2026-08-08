@@ -74,16 +74,37 @@ export const deleteSession = createAsyncThunk('sessions/delete', async (sessionI
     }
 })
 
-export const submitAnswer = createAsyncThunk('sessions/submitAnswer', async ({ sessionId, formData }, thunkAPI) => {
+// MODIFIED: Explicitly forcing headers to bypass Axios interceptor drops during FormData submissions
+export const submitAnswer = createAsyncThunk(
+  'sessions/submitAnswer',
+  async ({ sessionId, formData }, thunkAPI) => {
     try {
-        const response = await api.post(`/${sessionId}/submit-answer`, formData);
-        return response.data;
+      // 1. CRITICAL: Grab your user auth token directly from your auth state tree
+      // Adjust 'state.auth.user.token' to match your actual auth slice configuration structure
+      const token = thunkAPI.getState().auth?.user?.token; 
+
+      const config = {
+        headers: {
+          // 2. Explicitly attach the Bearer token here
+          Authorization: `Bearer ${token}`,
+          // 3. Let the browser handle the multi-part boundary settings dynamically
+        //   'Content-Type': 'multipart/form-data', 
+        },
+      };
+
+      const response = await axios.post(
+        `http://localhost:5000/api/sessions/${sessionId}/submit-answer`, // Match your backend port
+        formData,
+        config
+      );
+
+      return response.data;
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || error.toString();
+      return thunkAPI.rejectWithValue(message);
     }
-    catch (error) {
-        const message = (error.response && error.response.data && error.response.data.message) || error.message || error.toString();
-        return thunkAPI.rejectWithValue(message);
-    }
-})
+  }
+);
 
 export const endSession = createAsyncThunk('sessions/endSession', async (sessionId, thunkAPI) => {
     try {
@@ -93,7 +114,6 @@ export const endSession = createAsyncThunk('sessions/endSession', async (session
     catch (error) {
         const message = (error.response && error.response.data && error.response.data.message) || error.message || error.toString();
         return thunkAPI.rejectWithValue(message);
-
     }
 })
 
@@ -134,7 +154,6 @@ export const sessionSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            
             .addCase(getSessions.pending, (state) => { state.isLoading = true; })
             .addCase(getSessions.fulfilled, (state, action) => {
                 state.isLoading = false;
@@ -160,19 +179,14 @@ export const sessionSlice = createSlice({
                 state.isLoading = false;
                 state.sessions = state.sessions.filter(s => s._id !== action.payload);
             })
-         
             .addCase(submitAnswer.pending, (state) => {
-                // Do NOT set global isLoading here, or it freezes the whole app.
-                // We handle button loading locally in the component.
+                // Handled locally in the component.
             })
             .addCase(submitAnswer.fulfilled, (state, action) => {
                 state.isLoading = false; 
-
-              
                 if (action.payload && Array.isArray(action.payload.questions)) {
                     state.activeSession = action.payload;
                 }
-                
             })
             .addCase(submitAnswer.rejected, (state, action) => {
                 state.isError = true;

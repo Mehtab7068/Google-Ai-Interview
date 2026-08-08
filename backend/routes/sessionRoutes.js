@@ -12,10 +12,10 @@ import { uploadSingleAudio } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
-// Apply auth protection to ALL routes in this file automatically
+// CRITICAL FIX: Auth protection must be declared FIRST before any routes
 router.use(protect);
 
-// 1. Root Routes ("/")
+// 1. Root Routes ("/") - Now safely protected by JWT verification
 router.route("/")
     .get(getSessions)      // Fetch all sessions
     .post(createSession);  // Create new session
@@ -26,7 +26,23 @@ router.route("/:id")
     .delete(deleteSession); // Delete session
 
 // 3. Action Routes
-router.route("/:id/submit-answer").post(uploadSingleAudio, submitAnswer);
+// Ensure 'uploadSingleAudio' middleware expects the exact field name your frontend appends to FormData (e.g., 'file' or 'audio')
+// router.route("/:id/submit-answer").post(uploadSingleAudio, submitAnswer);
+router.route("/:id/submit-answer").post((req, res, next) => {
+    // 1. Manually invoke Multer so we can catch its direct pipeline failures
+    uploadSingleAudio(req, res, function (err) {
+        if (err) {
+            console.error("❌ MULTER UPLOAD CRASHED:", err);
+            res.status(500);
+            return res.json({ 
+                message: "File processing failure inside Multer middleware.", 
+                error: err.message 
+            });
+        }
+        // 2. No errors? Pass control to your session controller safely!
+        next();
+    });
+}, submitAnswer);
 router.route("/:id/end").post(endSession);
 
 export default router;

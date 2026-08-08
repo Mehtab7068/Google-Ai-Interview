@@ -1,21 +1,20 @@
-// backend/controllers/sessionController.js
 import asyncHandler from 'express-async-handler';
 import Session from '../models/SessionModel.js';
-import fetch from 'node-fetch'; // Standard for making HTTP requests (npm install node-fetch@2.6.1)
-import fs from 'fs'; // <-- NEW: For reading and deleting the temporary file
-import FormData from 'form-data'; // <-- NEW: For sending files to FastAPI
+import fetch from 'node-fetch'; // npm install node-fetch@2.6.1
+import fs from 'fs';
+import FormData from 'form-data';
 import path from 'path';
 import mongoose from 'mongoose';
-// URL for the Python AI Microservice (Must match Step 6 setup)
-const AI_SERVICE_URL = 'http://localhost:8000';
+
+// FIXED: Use explicit IPv4 loopback to avoid Node 18+ IPv6 resolution aborts
+const AI_SERVICE_URL = 'http://127.0.0.1:8000';
 
 // Helper function to send an update via Socket.io
 const pushSocketUpdate = (io, userId, sessionId, status, message, session = null) => {
-    // We target the user by their ID, assuming the user's socket is joined to a room named after their userId
-    // (This room setup must be done on socket connection, which we will address later in server.js)
+    if (!io) return;
     io.to(userId.toString()).emit('sessionUpdate', {
         sessionId,
-        status, // e.g., 'AI_GENERATING_QUESTIONS', 'QUESTIONS_READY', 'EVALUATION_FAILED'
+        status, 
         message,
         session,
     });
@@ -44,7 +43,7 @@ const createSession = asyncHandler(async (req, res) => {
 
     const io = req.app.get('io');
 
-    // 2. Immediately respond to the client (Latency Management)
+    // 2. Immediately respond to client
     res.status(202).json({
         message: 'Session created. Generating questions asynchronously...',
         sessionId: session._id,
@@ -52,15 +51,10 @@ const createSession = asyncHandler(async (req, res) => {
     });
 
     // --- ASYNCHRONOUS BACKGROUND TASK START ---
-
-    // Using a self-executing async function to run the process in the background
     (async () => {
         try {
-            // A. Notify the user via Socket.io that processing has started
             pushSocketUpdate(io, userId, session._id, 'AI_GENERATING_QUESTIONS', `Generating ${count} questions for ${role}...`);
 
-            // B. Call the Python AI Microservice
-            // backend/controllers/sessionController.js inside createSession
             const aiResponse = await fetch(`${AI_SERVICE_URL}/generate-questions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -68,19 +62,18 @@ const createSession = asyncHandler(async (req, res) => {
                     role,
                     level,
                     count,
-                    interview_type: interviewType // ADD THIS LINE
+                    interview_type: interviewType
                 }),
             });
 
             if (!aiResponse.ok) {
-                // If the AI service returns a non-200 status
                 const errorBody = await aiResponse.text();
                 throw new Error(`AI Service error: ${aiResponse.status} - ${errorBody}`);
             }
 
             const aiData = await aiResponse.json();
             const codingCount = interviewType === 'coding-mix' ? Math.floor(count * 0.2) : 0;
-            // C. Map the raw questions into the structured Mongoose sub-document format
+            
             const questionsArray = aiData.questions.map((qText, index) => ({
                 questionText: qText,
                 questionType: index < codingCount ? 'coding' : 'oral',
@@ -88,18 +81,14 @@ const createSession = asyncHandler(async (req, res) => {
                 isSubmitted: false,
             }));
 
-            // D. Update the session in MongoDB
             session.questions = questionsArray;
             session.status = 'in-progress';
             await session.save();
 
-            // E. Push final result back to the client via Socket.io
             pushSocketUpdate(io, userId, session._id, 'QUESTIONS_READY', 'Questions generated successfully. Starting session.', session);
 
         } catch (error) {
             console.error(`Session Creation Failure for ${session._id}:`, error.message);
-
-            // F. Handle failure: Update status and notify client
             session.status = 'failed';
             await session.save();
             pushSocketUpdate(io, userId, session._id, 'GENERATION_FAILED', `Question generation failed. Reason: ${error.message}.`);
@@ -111,10 +100,9 @@ const createSession = asyncHandler(async (req, res) => {
 // @route   GET /api/sessions/
 // @access  Private
 const getSessions = asyncHandler(async (req, res) => {
-    // Find all sessions for the logged-in user, sorted by newest first
     const sessions = await Session.find({ user: req.user._id })
         .sort({ createdAt: -1 })
-        .select('-questions.userAnswerText -questions.userSubmittedCode'); // Exclude heavy data for list view
+        .select('-questions.userAnswerText -questions.userSubmittedCode');
     res.json(sessions);
 });
 
@@ -122,7 +110,6 @@ const getSessions = asyncHandler(async (req, res) => {
 // @route   GET /api/sessions/:id
 // @access  Private
 const getSessionById = asyncHandler(async (req, res) => {
-    // Find session by ID and ensure it belongs to the logged-in user
     const session = await Session.findOne({ _id: req.params.id, user: req.user._id });
 
     if (session) {
@@ -144,21 +131,18 @@ const deleteSession = asyncHandler(async (req, res) => {
         throw new Error('Session not found');
     }
 
-    // Check if the user owns this session
     if (session.user.toString() !== req.user.id) {
         res.status(401);
         throw new Error('Not authorized');
     }
 
     await session.deleteOne();
-
     res.status(200).json({ id: req.params.id });
 });
 
+// Helper: Asynchronous Answer Evaluation & Transcription
 const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFilePath = null, code = null) => {
-    // Initialize transcription as an empty string instead of null to avoid "null" text in AI prompts
-    let transcription = ""; 
-
+    let transcription = "";
     const questionIdx = typeof questionIndex === 'string' ? parseInt(questionIndex, 10) : questionIndex;
 
     const session = await Session.findById(sessionId);
@@ -177,24 +161,56 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
     if (audioFilePath) {
         try {
             pushSocketUpdate(io, userId, sessionId, 'AI_TRANSCRIBING', `Transcribing audio for Q${questionIdx + 1}...`);
+            
+            const filename = path.basename(audioFilePath);
+            const ext = path.extname(audioFilePath) || '.webm';
+            
+            // FIXED: Safe Stream Creation with autoClose disabled during append
+            const fileStream = fs.createReadStream(audioFilePath, { autoClose: true });
+            
             const formData = new FormData();
-            formData.append('file', fs.createReadStream(audioFilePath));
+            formData.append('file', fileStream, {
+                filename: filename.includes('.') ? filename : `recording${ext}`,
+                contentType: ext === '.mp4' ? 'audio/mp4' : 'audio/webm',
+            });
+
+            // FIXED: Extended AbortController timeout to 120s for Gemini operations
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); 
 
             const transResponse = await fetch(`${AI_SERVICE_URL}/transcribe`, {
                 method: 'POST',
                 body: formData,
-                headers: formData.getHeaders(),
+                headers: {
+                    ...formData.getHeaders(),
+                    'Connection': 'keep-alive'
+                },
+                signal: controller.signal
             });
 
-            if (!transResponse.ok) throw new Error('Transcription service failed');
+            clearTimeout(timeoutId);
+
+            if (!transResponse.ok) {
+                const errorText = await transResponse.text();
+                throw new Error(`Transcription service status ${transResponse.status}: ${errorText}`);
+            }
 
             const transData = await transResponse.json();
             transcription = transData.transcription || "";
+            console.log(`✅ Transcription received for Q${questionIdx + 1}:`, transcription);
+            
         } catch (error) {
-            console.error(`Transcription Error: ${error.message}`);
-            // We continue even if transcription fails so the code can still be evaluated
+            console.error(`⚠️ Transcription Step Failed for Q${questionIdx + 1}: ${error.message}`);
+            transcription = "[Audio transcription failed or timed out]"; 
         } finally {
-            if (audioFilePath && fs.existsSync(audioFilePath)) fs.unlinkSync(audioFilePath);
+            // Clean up temporary local file
+            if (audioFilePath && fs.existsSync(audioFilePath)) {
+                try {
+                    fs.unlinkSync(audioFilePath);
+                } catch (unlinkErr) {
+                    console.error("Failed to delete temp audio file:", unlinkErr.message);
+                }
+            }
         }
     }
 
@@ -207,22 +223,24 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 question: question.questionText,
-                question_type: question.questionType, // Tells AI if it should expect code
+                question_type: question.questionType,
                 role: session.role,
                 level: session.level,
-                user_answer: transcription, // Dedicated transcription field
-                user_code: code || "",      // Dedicated code field
+                user_answer: transcription,
+                user_code: code || "",
             }),
         });
 
-        if (!evalResponse.ok) throw new Error('AI Evaluation service failed');
+        if (!evalResponse.ok) {
+            const pythonErrorText = await evalResponse.text();
+            throw new Error(`AI Service returned status ${evalResponse.status}: ${pythonErrorText}`);
+        }
 
         const evalData = await evalResponse.json();
 
-        // --- Phase 3: Correct MongoDB Mapping ---
-        // Store them strictly in their respective fields
-        question.userAnswerText = transcription; 
-        question.userSubmittedCode = code || ""; 
+        // --- Phase 3: Save Evaluation Result ---
+        question.userAnswerText = transcription;
+        question.userSubmittedCode = code || "";
 
         question.technicalScore = evalData.technicalScore;
         question.confidenceScore = evalData.confidenceScore;
@@ -230,13 +248,10 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
         question.idealAnswer = evalData.idealAnswer;
         question.isEvaluated = true;
 
-        // Check if all questions in the entire session are now evaluated
         const allQuestionsEvaluated = session.questions.every(q => q.isEvaluated);
 
-        // RECALCULATION LOGIC: 
         if (session.status === 'completed' || allQuestionsEvaluated) {
             const scoreSummary = await calculateOverallScore(sessionId);
-
             session.overallScore = scoreSummary.overallScore || 0;
             session.metrics = {
                 avgTechnical: scoreSummary.avgTechnical,
@@ -248,19 +263,30 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
                 session.endTime = session.endTime || new Date();
             }
 
-            // Save the session (includes question update + global score update)
             await session.save();
-
             pushSocketUpdate(io, userId, sessionId, 'SESSION_COMPLETED', 'Scores finalized.', session);
         } else {
-            // Normal behavior: User is still in the interview
             await session.save();
             pushSocketUpdate(io, userId, sessionId, 'EVALUATION_COMPLETE', `Feedback for Q${questionIdx + 1} is ready!`, session);
         }
 
     } catch (error) {
-        console.error(`Evaluation Error: ${error.message}`);
-        pushSocketUpdate(io, userId, sessionId, 'EVALUATION_FAILED', `Evaluation failed.`, session);
+        console.error(`❌ Evaluation Error: ${error.message}`);
+
+        try {
+            const freshSession = await Session.findById(sessionId);
+            if (freshSession && freshSession.questions[questionIdx]) {
+                freshSession.questions[questionIdx].isSubmitted = false;
+                freshSession.questions[questionIdx].isEvaluated = false;
+                freshSession.markModified('questions');
+                await freshSession.save();
+
+                pushSocketUpdate(io, userId, sessionId, 'EVALUATION_FAILED', `Evaluation failed: ${error.message}`, freshSession);
+            }
+        } catch (dbError) {
+            console.error("Failed to reset session status in catch block:", dbError.message);
+            pushSocketUpdate(io, userId, sessionId, 'EVALUATION_FAILED', `Evaluation failed completely.`, null);
+        }
     }
 };
 
@@ -268,62 +294,72 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
 // @route   POST /api/sessions/:id/submit-answer
 // @access  Private
 const submitAnswer = asyncHandler(async (req, res) => {
-    const sessionId = req.params.id;
-    const { questionIndex, code } = req.body; // Remove submissionType if not strictly needed
-    const userId = req.user._id;
+    try {
+        const sessionId = req.params.id;
+        const { questionIndex, code } = req.body;
+        const userId = req.user?._id;
 
-    const session = await Session.findById(sessionId);
+        if (!userId) {
+            res.status(401);
+            throw new Error('User not authenticated or req.user is missing.');
+        }
 
-    if (!session || session.user.toString() !== userId.toString()) {
-        res.status(404);
-        throw new Error('Session not found or user unauthorized.');
+        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+            res.status(400);
+            throw new Error('Invalid Session ID format.');
+        }
+
+        const session = await Session.findById(sessionId);
+        if (!session || session.user.toString() !== userId.toString()) {
+            res.status(404);
+            throw new Error('Session not found or user unauthorized.');
+        }
+
+        const questionIdx = parseInt(questionIndex, 10);
+        if (isNaN(questionIdx) || !session.questions || !session.questions[questionIdx]) {
+            res.status(400);
+            throw new Error(`Question at parsed index [${questionIndex}] not found.`);
+        }
+
+        const question = session.questions[questionIdx];
+
+        let audioFilePath = null;
+        if (req.file && req.file.path) {
+            // FIXED: Safely resolve path without duplicating process.cwd()
+            audioFilePath = path.resolve(req.file.path);
+        }
+
+        const codeSubmission = code || null;
+
+        question.isSubmitted = true;
+        await session.save();
+
+        res.status(202).json({
+            message: 'Answer received. Processing asynchronously...',
+            status: 'received',
+        });
+
+        const io = req.app.get('io');
+        evaluateAnswerAsync(io, userId, sessionId, questionIdx, audioFilePath, codeSubmission);
+
+    } catch (error) {
+        console.error("❌ CRITICAL ERROR IN SUBMIT-ANSWER CONTROLLER:", error);
+
+        res.status(res.statusCode === 200 ? 500 : res.statusCode);
+        res.json({
+            message: error.message,
+            stack: process.env.NODE_ENV === 'production' ? null : error.stack
+        });
     }
-
-    const questionIdx = parseInt(questionIndex, 10);
-    const question = session.questions[questionIdx];
-
-    if (!question) {
-        res.status(400);
-        throw new Error(`Question at index ${questionIdx} not found.`);
-    }
-
-    // --- NEW UNIFIED LOGIC ---
-    let audioFilePath = null;
-    if (req.file) {
-        audioFilePath = path.join(process.cwd(), req.file.path);
-    }
-
-    // We no longer error out if one is missing; 
-    // we take whatever is provided (audio, code, or both).
-    const codeSubmission = code || null;
-
-    // 1. Update status in DB
-    question.isSubmitted = true;
-    await session.save();
-
-    // 2. Respond immediately
-    res.status(202).json({
-        message: 'Answer received. Processing asynchronously...',
-        status: 'received',
-    });
-
-    const io = req.app.get('io');
-
-    // 3. Start AI processing with BOTH potential inputs
-    evaluateAnswerAsync(io, userId, sessionId, questionIdx, audioFilePath, codeSubmission);
 });
-
 
 const calculateOverallScore = async (sessionId) => {
     const results = await Session.aggregate([
         { $match: { _id: new mongoose.Types.ObjectId(sessionId) } },
         { $unwind: '$questions' },
-        // REMOVED: { $match: { 'questions.isSubmitted': true } } 
-        // We now keep all questions to ensure they are part of the average.
         {
             $group: {
                 _id: '$_id',
-                // If a question is evaluated, use its score; otherwise, use 0.
                 avgTechnical: {
                     $avg: { $cond: [{ $eq: ['$questions.isEvaluated', true] }, '$questions.technicalScore', 0] }
                 },
@@ -335,7 +371,6 @@ const calculateOverallScore = async (sessionId) => {
         {
             $project: {
                 _id: 0,
-                // Overall score is the average of the technical and confidence averages across ALL questions.
                 overallScore: { $round: [{ $avg: ['$avgTechnical', '$avgConfidence'] }, 0] },
                 avgTechnical: { $round: ['$avgTechnical', 0] },
                 avgConfidence: { $round: ['$avgConfidence', 0] },
@@ -345,6 +380,7 @@ const calculateOverallScore = async (sessionId) => {
 
     return results[0] || { overallScore: 0, avgTechnical: 0, avgConfidence: 0 };
 };
+
 // @desc    End the session early
 // @route   POST /api/sessions/:id/end
 // @access  Private
@@ -368,7 +404,6 @@ const endSession = asyncHandler(async (req, res) => {
         throw new Error('Session is already completed.');
     }
 
-    // Calculate scores for evaluated questions
     const scoreSummary = await calculateOverallScore(sessionId);
 
     session.overallScore = scoreSummary.overallScore || 0;
@@ -396,6 +431,3 @@ export {
     calculateOverallScore,
     deleteSession
 };
-
-
-
