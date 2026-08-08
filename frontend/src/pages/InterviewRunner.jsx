@@ -1,4 +1,3 @@
-// frontend/src/pages/InterviewRunner.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -47,6 +46,7 @@ const ROLE_LANGUAGE_MAP = {
   "UI/UX Designer": "css",
   "Product Manager": "markdown"
 };
+
 function InterviewRunner() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -56,14 +56,16 @@ function InterviewRunner() {
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
-
-
-  // If submittedLocal[0] is true, we lock Question 0 immediately.
   const [submittedLocal, setSubmittedLocal] = useState({});
 
   const [drafts, setDrafts] = useState(() => {
-    const saved = localStorage.getItem(`drafts_${sessionId}`);
-    return saved ? JSON.parse(saved) : {};
+    if (!sessionId || sessionId === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem(`drafts_${sessionId}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
   });
 
   const [isRecording, setIsRecording] = useState(false);
@@ -74,100 +76,54 @@ function InterviewRunner() {
   const streamRef = useRef(null);
   const timerIntervalRef = useRef(null);
 
+  // Prevent fetching API with invalid sessionId
+  useEffect(() => {
+    if (!sessionId || sessionId === 'undefined') {
+      toast.error("Invalid session ID.");
+      navigate('/');
+      return;
+    }
+    dispatch(getSessionById(sessionId));
+  }, [dispatch, sessionId, navigate]);
+
   useEffect(() => {
     if (activeSession?.role) {
-      const detectedLang =
-        ROLE_LANGUAGE_MAP[activeSession.role] || "plaintext";
-
+      const detectedLang = ROLE_LANGUAGE_MAP[activeSession.role] || "plaintext";
       setSelectedLanguage(detectedLang);
     }
   }, [activeSession?.role]);
 
-
+  // Save drafts safely
   useEffect(() => {
-    localStorage.setItem(`drafts_${sessionId}`, JSON.stringify(drafts));
+    if (!sessionId || sessionId === 'undefined') return;
+    const serializableDrafts = {};
+    Object.keys(drafts).forEach((key) => {
+      serializableDrafts[key] = { code: drafts[key]?.code || '' };
+    });
+    localStorage.setItem(`drafts_${sessionId}`, JSON.stringify(serializableDrafts));
   }, [drafts, sessionId]);
 
+  // Clean up recording hardware on unmount
   useEffect(() => {
-    dispatch(getSessionById(sessionId));
-  }, [dispatch, sessionId]);
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
 
-  const currentQuestion = activeSession?.questions?.[currentQuestionIndex];
+  // Safe fallback array for questions
+  const questions = activeSession?.questions || [];
+  const currentQuestion = questions[currentQuestionIndex];
 
-
-  // 1. Is it submitted in Redux? (Backend confirmed)
   const isReduxSubmitted = currentQuestion?.isSubmitted === true;
-
-  // 2. Did I just click submit locally? (Optimistic update)
   const isLocallySubmitted = submittedLocal[currentQuestionIndex] === true;
-
-  // 3. Lock if EITHER is true
   const isQuestionLocked = isReduxSubmitted || isLocallySubmitted;
-
-  // 4. Show "Analyzing..." status if Locked AND not yet evaluated
   const isProcessing = isQuestionLocked && !currentQuestion?.isEvaluated;
 
-
-  const handleNavigation = (index) => {
-    if (index >= 0 && index < activeSession?.questions.length) {
-      if (isRecording) stopRecording();
-      setCurrentQuestionIndex(index);
-      setRecordingTime(0);
-    }
-  };
-
-  const updateDraftCode = (newCode) => {
-    if (isQuestionLocked) return;
-    setDrafts(prev => ({
-      ...prev,
-      [currentQuestionIndex]: { ...prev[currentQuestionIndex], code: newCode }
-    }));
-  };
-
-  // const startRecording = async () => {
-  //   if (isQuestionLocked) return;
-  //   try {
-  //     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  //     streamRef.current = stream;
-  //     mediaRecorderRef.current = new MediaRecorder(stream);
-
-  //     // Clear old array records cleanly before recording starts
-  //     audioChunksRef.current = [];
-
-  //     mediaRecorderRef.current.ondataavailable = (e) => {
-  //       if (e.data && e.data.size > 0) {
-  //         audioChunksRef.current.push(e.data);
-  //       }
-  //     };
-
-  //     mediaRecorderRef.current.onstop = () => {
-  //       // Create valid blob from the fresh chunks array
-  //       const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-  //       setDrafts(prev => ({
-  //         ...prev,
-  //         [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: blob }
-  //       }));
-  //     };
-
-  //     mediaRecorderRef.current.start(1000);
-  //     setIsRecording(true);
-  //     setRecordingTime(0);
-  //     timerIntervalRef.current = setInterval(() => setRecordingTime(p => p + 1), 1000);
-  //   } catch (err) {
-  //     toast.error("Microphone denied.");
-  //   }
-  // };
-
-  // const stopRecording = () => {
-  //   if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-  //     mediaRecorderRef.current.stop();
-  //     streamRef.current?.getTracks().forEach(track => track.stop());
-  //     clearInterval(timerIntervalRef.current);
-  //     setIsRecording(false);
-  //   }
-  // };
-
-  // Helper to dynamically detect supported audio MIME types across Chrome, Firefox & Safari
   const getSupportedMimeType = () => {
     const types = [
       'audio/webm;codecs=opus',
@@ -181,14 +137,13 @@ function InterviewRunner() {
         return type;
       }
     }
-    return ''; // Fallback to browser default
+    return '';
   };
 
   const startRecording = async () => {
     if (isQuestionLocked) return;
 
     try {
-      // 1. Clean up any existing stream before starting a new one
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -196,7 +151,6 @@ function InterviewRunner() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // 2. Select a mimeType supported by the candidate's browser (Safari/iOS support)
       const mimeType = getSupportedMimeType();
       const options = mimeType ? { mimeType } : {};
 
@@ -209,26 +163,6 @@ function InterviewRunner() {
         }
       };
 
-      mediaRecorderRef.current.onstop = () => {
-        // 3. Use the recorder's actual MIME type for the Blob
-        const actualType = mediaRecorderRef.current?.mimeType || 'audio/webm';
-        const blob = new Blob(audioChunksRef.current, { type: actualType });
-
-        // Determine correct file extension for backend (e.g. .mp4 vs .webm)
-        const extension = actualType.includes('mp4') || actualType.includes('aac') ? 'mp4' : 'webm';
-        const audioFile = new File([blob], `answer_${currentQuestionIndex}.${extension}`, { type: actualType });
-
-        setDrafts((prev) => ({
-          ...prev,
-          [currentQuestionIndex]: {
-            ...prev[currentQuestionIndex],
-            audioBlob: blob,
-            audioFile: audioFile // Store pre-formatted File object ready for FormData
-          },
-        }));
-      };
-
-      // Collect chunks every 1000ms
       mediaRecorderRef.current.start(1000);
       setIsRecording(true);
       setRecordingTime(0);
@@ -242,90 +176,76 @@ function InterviewRunner() {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    return new Promise((resolve) => {
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+        clearInterval(timerIntervalRef.current);
+        setIsRecording(false);
+        resolve(null);
+        return;
+      }
+
+      mediaRecorderRef.current.onstop = () => {
+        const actualType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: actualType });
+        const extension = actualType.includes('mp4') || actualType.includes('aac') ? 'mp4' : 'webm';
+        const audioFile = new File([blob], `answer_${currentQuestionIndex}.${extension}`, { type: actualType });
+
+        setDrafts((prev) => ({
+          ...prev,
+          [currentQuestionIndex]: {
+            ...prev[currentQuestionIndex],
+            audioBlob: blob,
+            audioFile: audioFile
+          },
+        }));
+
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+
+        clearInterval(timerIntervalRef.current);
+        setIsRecording(false);
+        resolve({ blob, audioFile });
+      };
+
       mediaRecorderRef.current.stop();
-    }
-
-    // Stop hardware tracks immediately
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    clearInterval(timerIntervalRef.current);
-    setIsRecording(false);
+    });
   };
 
-  // const handleSubmitAnswer = async () => {
-  //   if (isQuestionLocked) return;
+  const handleNavigation = async (index) => {
+    if (index >= 0 && index < questions.length) {
+      if (isRecording) await stopRecording();
+      setCurrentQuestionIndex(index);
+      setRecordingTime(0);
+    }
+  };
 
-  //   // 1. If currently recording, stop it immediately
-  //   if (isRecording) {
-  //     stopRecording();
-  //     // Tiny forced absolute delay to allow the MediaRecorder hardware pipeline to push remaining chunk frames
-  //     await new Promise((resolve) => setTimeout(resolve, 150));
-  //   }
-
-  //   const draft = drafts[currentQuestionIndex];
-  //   const code = draft?.code || '';
-  //   let audio = draft?.audioBlob;
-
-  //   // 2. Fallback to raw data directly from the reference collector
-  //   if (!audio && audioChunksRef.current && audioChunksRef.current.length > 0) {
-  //     audio = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-  //   }
-
-  //   if (!code && !audio) {
-  //     toast.warning("Please provide code or an audio answer.");
-  //     return;
-  //   }
-
-  //   // Lock UI instantly
-  //   setSubmittedLocal(prev => ({ ...prev, [currentQuestionIndex]: true }));
-
-  //   const formData = new FormData();
-  //   formData.append('questionIndex', currentQuestionIndex);
-  //   if (code) formData.append('code', code);
-
-  //   // 3. Append the file payload accurately
-  //   if (audio && audio.size > 0) {
-  //     formData.append('audioFile', audio, 'answer.webm');
-  //   } else {
-  //     // If there is truly no audio, don't pass an empty file—let the backend know nothing was recorded
-  //     console.log("No verbal recording provided; sending text/code-only payload.");
-  //   }
-
-  //   // Send Request
-  //   dispatch(submitAnswer({ sessionId, formData }))
-  //     .unwrap()
-  //     .then(() => {
-  //       // Clear chunks after a successful submit to prevent leak crossovers into next question
-  //       audioChunksRef.current = [];
-  //     })
-  //     .catch((err) => {
-  //       setSubmittedLocal(prev => ({ ...prev, [currentQuestionIndex]: false }));
-  //       toast.error("Submission failed. Please try again.");
-  //     });
-  // };
-
+  const updateDraftCode = (newCode) => {
+    if (isQuestionLocked) return;
+    setDrafts(prev => ({
+      ...prev,
+      [currentQuestionIndex]: { ...prev[currentQuestionIndex], code: newCode }
+    }));
+  };
 
   const handleSubmitAnswer = async () => {
     if (isQuestionLocked) return;
 
-    // 1. If currently recording, stop it cleanly
+    let recordedData = null;
     if (isRecording) {
-      stopRecording();
-      // Allow the MediaRecorder hardware pipeline to flush remaining chunk frames
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      recordedData = await stopRecording();
     }
 
     const draft = drafts[currentQuestionIndex];
     const code = draft?.code || '';
-    let audio = draft?.audioBlob;
+    let audio = recordedData?.blob || draft?.audioBlob;
 
-    // 2. Fallback to raw data directly from the reference collector
     if (!audio && audioChunksRef.current && audioChunksRef.current.length > 0) {
-      // Detect recording mimeType if available, fallback to audio/webm
       const type = mediaRecorderRef.current?.mimeType || 'audio/webm';
       audio = new Blob(audioChunksRef.current, { type });
     }
@@ -335,29 +255,20 @@ function InterviewRunner() {
       return;
     }
 
-    // Lock UI instantly
     setSubmittedLocal((prev) => ({ ...prev, [currentQuestionIndex]: true }));
 
     const formData = new FormData();
     formData.append('questionIndex', currentQuestionIndex);
     if (code) formData.append('code', code);
 
-    // 3. Append the file payload accurately
     if (audio && audio.size > 0) {
-      // Determine the real file extension (.mp4, .webm, etc.)
       const extension = audio.type.includes('mp4') || audio.type.includes('aac') ? 'mp4' : 'webm';
-
-      // IMPORTANT: Parameter key MUST be 'file' to match FastAPI's UploadFile parameter!
       formData.append('file', audio, `answer_${currentQuestionIndex}.${extension}`);
-    } else {
-      console.log("No verbal recording provided; sending code-only payload.");
     }
 
-    // 4. Send Request
     dispatch(submitAnswer({ sessionId, formData }))
       .unwrap()
       .then(() => {
-        // Clear chunks after successful submission
         audioChunksRef.current = [];
       })
       .catch((err) => {
@@ -366,13 +277,11 @@ function InterviewRunner() {
       });
   };
 
-  // 1. Calculate if ANY question in the entire session is currently evaluating
-  const isAnyQuestionProcessing = activeSession?.questions?.some((q, i) => {
+  const isAnyQuestionProcessing = questions.some((q, i) => {
     return (q.isSubmitted || submittedLocal[i]) && !q.isEvaluated;
   });
 
   const handleFinishInterview = () => {
-    // 2. Alert them early on the client-side instead of breaking silently via a catch-block
     if (isAnyQuestionProcessing) {
       toast.warning("Please wait a moment. AI is still finishing its analysis on your final answers.");
       return;
@@ -386,10 +295,25 @@ function InterviewRunner() {
         localStorage.removeItem(`drafts_${sessionId}`);
         navigate(`/review/${sessionId}`);
       })
-      .catch(err => toast.error("Could not finish session. Ai is working on it."));
+      .catch(() => toast.error("Could not finish session. AI is working on it."));
   };
 
-  if (!activeSession) return <div className="text-center py-20 text-slate-400">Loading...</div>;
+  if (!activeSession) {
+    return <div className="text-center py-20 text-slate-400">Loading Session...</div>;
+  }
+
+  // Handle case when activeSession exists but questions are still generating
+  if (questions.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto my-20 p-8 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <h2 className="text-xl font-bold text-slate-800">Generating Questions...</h2>
+        <p className="text-sm text-slate-500 mt-2">
+          {message || "AI is preparing tailored questions for your session. Please wait..."}
+        </p>
+      </div>
+    );
+  }
 
   const currentDraft = drafts[currentQuestionIndex] || {};
 
@@ -399,14 +323,19 @@ function InterviewRunner() {
         <div>
           <h1 className="text-xl font-black text-slate-900">{activeSession.role}</h1>
           <div className="flex gap-2 mt-2">
-            {activeSession?.questions?.map((q, i) => (
+            {questions.map((q, i) => (
               <div
                 key={i}
                 onClick={() => handleNavigation(i)}
-                className={`w-3 h-3 rounded-full cursor-pointer transition-all ${i === currentQuestionIndex ? 'bg-blue-600 scale-125 ring-2 ring-blue-200' :
-                  q.isEvaluated ? 'bg-emerald-500' :
-                    (q.isSubmitted || submittedLocal[i]) ? 'bg-amber-400 animate-pulse' : 'bg-slate-200'
-                  }`}
+                className={`w-3 h-3 rounded-full cursor-pointer transition-all ${
+                  i === currentQuestionIndex
+                    ? 'bg-blue-600 scale-125 ring-2 ring-blue-200'
+                    : q.isEvaluated
+                    ? 'bg-emerald-500'
+                    : (q.isSubmitted || submittedLocal[i])
+                    ? 'bg-amber-400 animate-pulse'
+                    : 'bg-slate-200'
+                }`}
               />
             ))}
           </div>
@@ -439,7 +368,10 @@ function InterviewRunner() {
             </button>
           ) : isRecording ? (
             <div className="text-center">
-              <div className="w-20 h-20 bg-rose-500 rounded-full flex items-center justify-center animate-pulse text-white text-3xl cursor-pointer" onClick={stopRecording}>
+              <div
+                className="w-20 h-20 bg-rose-500 rounded-full flex items-center justify-center animate-pulse text-white text-3xl cursor-pointer"
+                onClick={stopRecording}
+              >
                 ⏹
               </div>
               <p className="mt-4 font-mono text-rose-500 font-bold">{recordingTime}s</p>
@@ -448,7 +380,15 @@ function InterviewRunner() {
             <div className="text-center">
               <div className="text-emerald-500 font-bold text-lg mb-2">Audio Captured ✅</div>
               {!isQuestionLocked && (
-                <button onClick={() => setDrafts(prev => ({ ...prev, [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: null } }))} className="text-xs text-slate-400 underline hover:text-rose-500">
+                <button
+                  onClick={() =>
+                    setDrafts((prev) => ({
+                      ...prev,
+                      [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: null, audioFile: null }
+                    }))
+                  }
+                  className="text-xs text-slate-400 underline hover:text-rose-500"
+                >
                   Delete & Re-record
                 </button>
               )}
@@ -465,7 +405,11 @@ function InterviewRunner() {
               disabled={isQuestionLocked}
               className="text-xs bg-white border border-slate-200 rounded-lg px-2 disabled:bg-slate-100 disabled:text-slate-400"
             >
-              {SUPPORTED_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
             </select>
           </div>
           <MonacoEditor
@@ -490,7 +434,9 @@ function InterviewRunner() {
           <h3 className="text-emerald-800 font-bold mb-2">💡 AI Feedback</h3>
           <p className="text-emerald-700 text-sm leading-relaxed">{currentQuestion.aiFeedback}</p>
           <div className="mt-4 flex gap-4">
-            <span className="bg-white px-3 py-1 rounded-lg text-xs font-bold text-emerald-600 shadow-sm">Score: {currentQuestion.technicalScore}/100</span>
+            <span className="bg-white px-3 py-1 rounded-lg text-xs font-bold text-emerald-600 shadow-sm">
+              Score: {currentQuestion.technicalScore}/100
+            </span>
           </div>
         </div>
       )}
@@ -505,7 +451,6 @@ function InterviewRunner() {
         </button>
 
         <div className="flex flex-col items-center">
-          {/* ✅ STATUS BAR: Shows if Locked but not Evaluated yet */}
           {isProcessing && message && (
             <div className="mb-2 text-xs font-mono text-blue-600 bg-blue-50 px-3 py-1 rounded-full animate-pulse border border-blue-100">
               🤖 {message}...
@@ -515,11 +460,15 @@ function InterviewRunner() {
           <button
             onClick={handleSubmitAnswer}
             disabled={isQuestionLocked}
-            className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${isProcessing ? 'bg-slate-400 cursor-wait' :
-              currentQuestion?.isEvaluated ? 'bg-emerald-500' :
-                isQuestionLocked ? 'bg-slate-400' :
-                  'bg-slate-900 hover:bg-slate-800 active:scale-95'
-              }`}
+            className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${
+              isProcessing
+                ? 'bg-slate-400 cursor-wait'
+                : currentQuestion?.isEvaluated
+                ? 'bg-emerald-500'
+                : isQuestionLocked
+                ? 'bg-slate-400'
+                : 'bg-slate-900 hover:bg-slate-800 active:scale-95'
+            }`}
           >
             {isProcessing ? "Analyzing..." : currentQuestion?.isEvaluated ? "Answer Submitted" : isQuestionLocked ? "Submitted" : "Submit Answer"}
           </button>
@@ -527,7 +476,7 @@ function InterviewRunner() {
 
         <button
           onClick={() => handleNavigation(currentQuestionIndex + 1)}
-          disabled={currentQuestionIndex === activeSession.questions.length - 1}
+          disabled={questions.length === 0 || currentQuestionIndex === questions.length - 1}
           className="text-slate-500 font-bold text-sm hover:text-slate-800 disabled:opacity-30"
         >
           Next →
