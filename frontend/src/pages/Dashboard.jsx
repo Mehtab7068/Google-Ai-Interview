@@ -66,10 +66,11 @@ const Dashboard = () => {
   }
 
   const viewSession = (session) => {
-    if (session.status === 'completed' && session._id) {
-      navigate(`/review/${session._id}`);
-    } else if (session.status === 'in-progress' && session._id) {
-      navigate(`/interview/${session._id}`);
+    const sessionIdOrFallback = session._id || session.sessionId;
+    if (session.status === 'completed' && sessionIdOrFallback) {
+      navigate(`/review/${sessionIdOrFallback}`);
+    } else if (session.status === 'in-progress' && sessionIdOrFallback) {
+      navigate(`/interview/${sessionIdOrFallback}`);
     } else {
       toast.info('Session not ready yet');
     }

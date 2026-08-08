@@ -25,7 +25,11 @@ export const createSession = createAsyncThunk(
       const token = thunkAPI.getState().auth?.user?.token;
       const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
       const response = await axios.post(API_URL, sessionData, config);
-      return response.data;
+      const payload = response.data;
+      if (payload?.sessionId && !payload._id) {
+        payload._id = payload.sessionId;
+      }
+      return payload;
     } catch (error) {
       const message = error.response?.data?.message || error.message;
       return thunkAPI.rejectWithValue(message);
