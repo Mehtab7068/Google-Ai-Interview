@@ -1,75 +1,463 @@
-const SessionCard = ({ session, onClick, onDelete }) => {
+import React, { useEffect, useState, useRef } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getSessionById, submitAnswer, endSession } from '../features/sessions/sessionSlice';
+import MonacoEditor from '@monaco-editor/react';
+import { toast } from 'react-toastify';
 
-    const isDeletable = session.status !== 'pending';
-    const getIcon = () => {
-        const r = session.role;
+const SUPPORTED_LANGUAGES = [
+  { label: 'JavaScript', value: 'javascript' },
+  { label: 'TypeScript', value: 'typescript' },
+  { label: 'Python', value: 'python' },
+  { label: 'Java', value: 'java' },
+  { label: 'C++', value: 'cpp' },
+  { label: 'C#', value: 'csharp' },
+  { label: 'Go', value: 'go' },
+  { label: 'Swift', value: 'swift' },
+  { label: 'Kotlin', value: 'kotlin' },
+  { label: 'R Language', value: 'r' },
+  { label: 'SQL', value: 'sql' },
+  { label: 'HTML', value: 'html' },
+  { label: 'CSS', value: 'css' },
+  { label: 'Solidity', value: 'solidity' },
+  { label: 'Shell', value: 'shell' },
+  { label: 'YAML', value: 'yaml' },
+  { label: 'Markdown', value: 'markdown' },
+  { label: 'Plain Text', value: 'plaintext' },
+];
 
-        if (r.includes('Python')) return '🐍';
-        if (r.includes('MERN') || r.includes('MEAN') || r.includes('React') || r.includes('Frontend')) return '⚛️';
-        if (r.includes('Data') || r.includes('Machine') || r.includes('AI')) return '📊';
-        if (r.includes('DevOps') || r.includes('Cloud') || r.includes('SRE')) return '☁️';
-        if (r.includes('Security') || r.includes('Cyber')) return '🛡️';
-        if (r.includes('Blockchain') || r.includes('Web3')) return '⛓️';
-        if (r.includes('Mobile') || r.includes('iOS') || r.includes('Android')) return '📱';
-        if (r.includes('Game')) return '🎮';
-        if (r.includes('UI') || r.includes('UX') || r.includes('Designer')) return '🎨';
-        if (r.includes('QA') || r.includes('Test')) return '🧪';
-        if (r.includes('Product') || r.includes('Manager')) return '📝';
-        if (r.includes('Java') || r.includes('Backend')) return '☕';
+const ROLE_LANGUAGE_MAP = {
+  "MERN Stack Developer": "javascript",
+  "MEAN Stack Developer": "typescript",
+  "Full Stack Python": "python",
+  "Full Stack Java": "java",
+  "Frontend Developer": "javascript",
+  "Backend Developer": "javascript",
+  "Data Scientist": "python",
+  "Data Analyst": "python",
+  "Machine Learning Engineer": "python",
+  "DevOps Engineer": "shell",
+  "Cloud Engineer (AWS/Azure/GCP)": "yaml",
+  "Cybersecurity Engineer": "python",
+  "Blockchain Developer": "solidity",
+  "Mobile Developer (iOS/Android)": "swift",
+  "Game Developer": "csharp",
+  "QA Automation Engineer": "python",
+  "UI/UX Designer": "css",
+  "Product Manager": "markdown"
+};
 
-        return '💻'; // Default
+function InterviewRunner() {
+  const { sessionId } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const { activeSession, isLoading, message } = useSelector(state => state.sessions);
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedLanguage, setSelectedLanguage] = useState('javascript');
+  const [submittedLocal, setSubmittedLocal] = useState({});
+
+  const [drafts, setDrafts] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`drafts_${sessionId}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const streamRef = useRef(null);
+  const timerIntervalRef = useRef(null);
+
+  useEffect(() => {
+    if (activeSession?.role) {
+      const detectedLang = ROLE_LANGUAGE_MAP[activeSession.role] || "plaintext";
+      setSelectedLanguage(detectedLang);
+    }
+  }, [activeSession?.role]);
+
+  // Save text/code drafts to localStorage without crashing on Blob/File conversion
+  useEffect(() => {
+    const serializableDrafts = {};
+    Object.keys(drafts).forEach((key) => {
+      serializableDrafts[key] = { code: drafts[key]?.code || '' };
+    });
+    localStorage.setItem(`drafts_${sessionId}`, JSON.stringify(serializableDrafts));
+  }, [drafts, sessionId]);
+
+  useEffect(() => {
+    dispatch(getSessionById(sessionId));
+  }, [dispatch, sessionId]);
+
+  // Clean up streams and timers on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
     };
-    const statusColor = session.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : session.status === 'in-progress' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-700';
+  }, []);
 
-    const iconBg = session.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600';
+  const currentQuestion = activeSession?.questions?.[currentQuestionIndex];
+  const isReduxSubmitted = currentQuestion?.isSubmitted === true;
+  const isLocallySubmitted = submittedLocal[currentQuestionIndex] === true;
+  const isQuestionLocked = isReduxSubmitted || isLocallySubmitted;
+  const isProcessing = isQuestionLocked && !currentQuestion?.isEvaluated;
 
-    const scoreColor = session.status === 'completed' ? (session.overallScore > 75 ? ' text-emerald-500' : 'text-orange-500') : 'text-slate-300';
+  const getSupportedMimeType = () => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/aac',
+    ];
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  };
 
-    return (
-        <div onClick={() => onClick(session)} className='group bg-white border border-slate-100 p-5 sm:p-6 rounded-2xl sm:rounded-[2rem] flex flex-col md:flex-row items-center gap-4 transition-all hover:shadow-lg active:scale-[0.98] cursor-pointer'>
-            <div className='flex items-center gap-4 sm:gap-6 w-full md:w-auto flex-grow'>
-                <div className={`w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-xl sm:rounded-2xl flex items-center justify-center text-xl sm:text-2xl shadow-sm ${iconBg}`}>{getIcon()}</div>
-                <div className='overflow-hidden'>
-                    <h3 className='font-bold text-slate-900 text-base sm:text-lg truncate group-hover:text-teal-600'>{session.role}</h3>
-                    <div className='flex items-center gap-2 text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight'>
-                        <span>{new Date(session.createdAt).toLocaleDateString()}</span>
-                        <span>.</span>
-                        <span className='text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md'>{session.level}</span>
-                    </div>
-                </div>
-            </div>
+  const startRecording = async () => {
+    if (isQuestionLocked) return;
 
-            <div className='flex items-center justify-between md:justify-end gap-6 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0'>
-                <div className='text-left md:text-center'>
-                    <p className='text-[9px] font-black text-slate-300 uppercase tracking-widest'>Global Score</p>
-                    <p className={`text-xl sm:text-2xl font-black ${scoreColor}`}>
-                        {session.status === 'completed' ? session.overallScore : '--'}
-                    </p>
-                </div>
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
 
-                <div className='flex flex-col items-end gap-1.5'>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${statusColor}`}>{session.status}</span>
-                    <span className='text-teal-600 font-bold text-xs flex items-center'>{session.status === 'completed' ? 'Results' : 'Resume'}
-                        <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path>
-                        </svg>
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
-                    </span>
-                </div>
+      const mimeType = getSupportedMimeType();
+      const options = mimeType ? { mimeType } : {};
 
-            </div>
+      mediaRecorderRef.current = new MediaRecorder(stream, options);
+      audioChunksRef.current = [];
 
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
 
-            <div className='hidden md:block w-px h-10 bg-slate-100 mx-2'></div>
+      mediaRecorderRef.current.start(1000);
+      setIsRecording(true);
+      setRecordingTime(0);
 
-            <button onClick={(e) => { e.stopPropagation(); if (isDeletable) onDelete(e, session._id) }} className='p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all' title='Delete Session'>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = setInterval(() => setRecordingTime((p) => p + 1), 1000);
+    } catch (err) {
+      console.error("Microphone Access Error:", err);
+      toast.error("Microphone denied or not supported.");
+    }
+  };
 
-            </button>
+  const stopRecording = () => {
+    return new Promise((resolve) => {
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+        clearInterval(timerIntervalRef.current);
+        setIsRecording(false);
+        resolve(null);
+        return;
+      }
+
+      mediaRecorderRef.current.onstop = () => {
+        const actualType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: actualType });
+        const extension = actualType.includes('mp4') || actualType.includes('aac') ? 'mp4' : 'webm';
+        const audioFile = new File([blob], `answer_${currentQuestionIndex}.${extension}`, { type: actualType });
+
+        setDrafts((prev) => ({
+          ...prev,
+          [currentQuestionIndex]: {
+            ...prev[currentQuestionIndex],
+            audioBlob: blob,
+            audioFile: audioFile
+          },
+        }));
+
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+
+        clearInterval(timerIntervalRef.current);
+        setIsRecording(false);
+        resolve({ blob, audioFile });
+      };
+
+      mediaRecorderRef.current.stop();
+    });
+  };
+
+  const handleNavigation = async (index) => {
+    if (index >= 0 && index < activeSession?.questions.length) {
+      if (isRecording) await stopRecording();
+      setCurrentQuestionIndex(index);
+      setRecordingTime(0);
+    }
+  };
+
+  const updateDraftCode = (newCode) => {
+    if (isQuestionLocked) return;
+    setDrafts(prev => ({
+      ...prev,
+      [currentQuestionIndex]: { ...prev[currentQuestionIndex], code: newCode }
+    }));
+  };
+
+  const handleSubmitAnswer = async () => {
+    if (isQuestionLocked) return;
+
+    let recordedData = null;
+    if (isRecording) {
+      recordedData = await stopRecording();
+    }
+
+    const draft = drafts[currentQuestionIndex];
+    const code = draft?.code || '';
+    let audio = recordedData?.blob || draft?.audioBlob;
+
+    if (!audio && audioChunksRef.current && audioChunksRef.current.length > 0) {
+      const type = mediaRecorderRef.current?.mimeType || 'audio/webm';
+      audio = new Blob(audioChunksRef.current, { type });
+    }
+
+    if (!code && (!audio || audio.size === 0)) {
+      toast.warning("Please provide code or an audio answer.");
+      return;
+    }
+
+    setSubmittedLocal((prev) => ({ ...prev, [currentQuestionIndex]: true }));
+
+    const formData = new FormData();
+    formData.append('questionIndex', currentQuestionIndex);
+    if (code) formData.append('code', code);
+
+    if (audio && audio.size > 0) {
+      const extension = audio.type.includes('mp4') || audio.type.includes('aac') ? 'mp4' : 'webm';
+      formData.append('file', audio, `answer_${currentQuestionIndex}.${extension}`);
+    }
+
+    dispatch(submitAnswer({ sessionId, formData }))
+      .unwrap()
+      .then(() => {
+        audioChunksRef.current = [];
+      })
+      .catch((err) => {
+        setSubmittedLocal((prev) => ({ ...prev, [currentQuestionIndex]: false }));
+        toast.error("Submission failed. Please try again.");
+      });
+  };
+
+  const isAnyQuestionProcessing = activeSession?.questions?.some((q, i) => {
+    return (q.isSubmitted || submittedLocal[i]) && !q.isEvaluated;
+  });
+
+  const handleFinishInterview = () => {
+    if (isAnyQuestionProcessing) {
+      toast.warning("Please wait a moment. AI is still finishing its analysis on your final answers.");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to finish?")) return;
+
+    dispatch(endSession(sessionId))
+      .unwrap()
+      .then(() => {
+        localStorage.removeItem(`drafts_${sessionId}`);
+        navigate(`/review/${sessionId}`);
+      })
+      .catch(() => toast.error("Could not finish session. AI is working on it."));
+  };
+
+  if (!activeSession) return <div className="text-center py-20 text-slate-400">Loading...</div>;
+
+  const currentDraft = drafts[currentQuestionIndex] || {};
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8 pb-32">
+      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
+        <div>
+          <h1 className="text-xl font-black text-slate-900">{activeSession.role}</h1>
+          <div className="flex gap-2 mt-2">
+            {activeSession?.questions?.map((q, i) => (
+              <div
+                key={i}
+                onClick={() => handleNavigation(i)}
+                className={`w-3 h-3 rounded-full cursor-pointer transition-all ${
+                  i === currentQuestionIndex
+                    ? 'bg-blue-600 scale-125 ring-2 ring-blue-200'
+                    : q.isEvaluated
+                    ? 'bg-emerald-500'
+                    : (q.isSubmitted || submittedLocal[i])
+                    ? 'bg-amber-400 animate-pulse'
+                    : 'bg-slate-200'
+                }`}
+              />
+            ))}
+          </div>
         </div>
-    )
+        <button
+          onClick={handleFinishInterview}
+          disabled={isLoading}
+          className="bg-rose-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-rose-700 disabled:opacity-50"
+        >
+          {isLoading ? "Finalizing..." : "Finish Interview"}
+        </button>
+      </div>
+
+      <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl mb-6">
+        <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">Question {currentQuestionIndex + 1}</span>
+        <h2 className="text-2xl mt-2 font-medium leading-relaxed">{currentQuestion?.questionText}</h2>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Verbal Answer</h3>
+
+          {!isRecording && !currentDraft.audioBlob ? (
+            <button
+              onClick={startRecording}
+              disabled={isQuestionLocked}
+              className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:bg-slate-400 disabled:cursor-not-allowed"
+            >
+              🎤
+            </button>
+          ) : isRecording ? (
+            <div className="text-center">
+              <div
+                className="w-20 h-20 bg-rose-500 rounded-full flex items-center justify-center animate-pulse text-white text-3xl cursor-pointer"
+                onClick={stopRecording}
+              >
+                ⏹
+              </div>
+              <p className="mt-4 font-mono text-rose-500 font-bold">{recordingTime}s</p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="text-emerald-500 font-bold text-lg mb-2">Audio Captured ✅</div>
+              {!isQuestionLocked && (
+                <button
+                  onClick={() =>
+                    setDrafts((prev) => ({
+                      ...prev,
+                      [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: null, audioFile: null }
+                    }))
+                  }
+                  className="text-xs text-slate-400 underline hover:text-rose-500"
+                >
+                  Delete & Re-record
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm overflow-hidden h-[400px]">
+          <div className="flex justify-between px-4 py-2 bg-slate-50 border-b border-slate-100">
+            <span className="text-xs font-bold text-slate-500 uppercase py-2">Code Editor</span>
+            <select
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value)}
+              disabled={isQuestionLocked}
+              className="text-xs bg-white border border-slate-200 rounded-lg px-2 disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <MonacoEditor
+            height="100%"
+            language={selectedLanguage}
+            theme="vs-dark"
+            value={currentDraft.code || ''}
+            onChange={updateDraftCode}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 13,
+              scrollBeyondLastLine: false,
+              readOnly: isQuestionLocked,
+              domReadOnly: isQuestionLocked
+            }}
+          />
+        </div>
+      </div>
+
+      {currentQuestion?.isEvaluated && (
+        <div className="mt-6 bg-emerald-50 border border-emerald-100 p-6 rounded-2xl animate-in fade-in slide-in-from-bottom-4">
+          <h3 className="text-emerald-800 font-bold mb-2">💡 AI Feedback</h3>
+          <p className="text-emerald-700 text-sm leading-relaxed">{currentQuestion.aiFeedback}</p>
+          <div className="mt-4 flex gap-4">
+            <span className="bg-white px-3 py-1 rounded-lg text-xs font-bold text-emerald-600 shadow-sm">
+              Score: {currentQuestion.technicalScore}/100
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 px-6 md:px-12 flex justify-between items-center z-50">
+        <button
+          onClick={() => handleNavigation(currentQuestionIndex - 1)}
+          disabled={currentQuestionIndex === 0}
+          className="text-slate-500 font-bold text-sm hover:text-slate-800 disabled:opacity-30"
+        >
+          ← Previous
+        </button>
+
+        <div className="flex flex-col items-center">
+          {isProcessing && message && (
+            <div className="mb-2 text-xs font-mono text-blue-600 bg-blue-50 px-3 py-1 rounded-full animate-pulse border border-blue-100">
+              🤖 {message}...
+            </div>
+          )}
+
+          <button
+            onClick={handleSubmitAnswer}
+            disabled={isQuestionLocked}
+            className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${
+              isProcessing
+                ? 'bg-slate-400 cursor-wait'
+                : currentQuestion?.isEvaluated
+                ? 'bg-emerald-500'
+                : isQuestionLocked
+                ? 'bg-slate-400'
+                : 'bg-slate-900 hover:bg-slate-800 active:scale-95'
+            }`}
+          >
+            {isProcessing ? "Analyzing..." : currentQuestion?.isEvaluated ? "Answer Submitted" : isQuestionLocked ? "Submitted" : "Submit Answer"}
+          </button>
+        </div>
+
+        <button
+          onClick={() => handleNavigation(currentQuestionIndex + 1)}
+          disabled={currentQuestionIndex === activeSession.questions.length - 1}
+          className="text-slate-500 font-bold text-sm hover:text-slate-800 disabled:opacity-30"
+        >
+          Next →
+        </button>
+      </div>
+    </div>
+  );
 }
 
-export default SessionCard
+export default InterviewRunner;
