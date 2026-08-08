@@ -33,7 +33,7 @@ const useSocket = () => {
       socket.on('sessionUpdate', (payload) => {
         console.log('Real-time Session Update:', payload.status);
 
-        dispatch(socketUpdateSession(payload));
+        dispatch(setRealtimeSessionUpdate(payload));
         if (payload.status === 'QUESTIONS_READY') {
           navigate(`/interview/${payload.sessionId}`);
         }
