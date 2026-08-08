@@ -21,7 +21,6 @@ const server = http.createServer(app);
    ========================================================= */
 app.use(
   helmet({
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
@@ -90,7 +89,7 @@ app.use("/api/sessions", sessionRoutes);
 io.on("connection", (socket) => {
   console.log(`A user Connected ${socket.id}`);
   const userId = socket.handshake.query.userId;
-  
+
   if (userId) {
     socket.join(userId);
     console.log(`User ${socket.id} joined room: ${userId}`);
