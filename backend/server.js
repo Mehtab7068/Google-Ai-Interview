@@ -17,7 +17,7 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigin = [
-    'https://google-ai-interview.vercel.app/',
+    'https://google-ai-interview.vercel.app',
 ]
 
 const io = new Server(server, {
