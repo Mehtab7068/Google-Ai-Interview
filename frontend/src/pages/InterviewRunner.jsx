@@ -113,6 +113,9 @@ function InterviewRunner() {
     }
   }, [activeSession?.role]);
 
+  const isQuestionLocked = currentQuestion?.isSubmitted === true || submittedLocal[currentQuestionIndex] === true;
+  const isProcessing = isQuestionLocked && !currentQuestion?.isEvaluated;
+
   // Persist code drafts to localStorage safely
   useEffect(() => {
     if (!sessionId || sessionId === 'undefined') return;
