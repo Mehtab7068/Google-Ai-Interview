@@ -89,7 +89,6 @@ function InterviewRunner() {
   const questions = Array.isArray(activeSession?.questions) ? activeSession.questions : [];
   const currentQuestion = questions[currentQuestionIndex] || null;
   const isGeneratingQuestions = ['pending', 'processing', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status);
-  const hasFailed = activeSession?.status === 'failed';
 
   // Refresh session details while question generation is still active and no questions exist yet.
   useEffect(() => {
