@@ -119,7 +119,7 @@ function InterviewRunner() {
   // Safe question getters
   const questions = Array.isArray(activeSession?.questions) ? activeSession.questions : [];
   const currentQuestion = questions[currentQuestionIndex] || null;
-  const isGeneratingQuestions = ['pending', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status);
+  const isGeneratingQuestions = ['pending', 'processing', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status);
   const hasFailed = activeSession?.status === 'failed';
 
   const isReduxSubmitted = currentQuestion?.isSubmitted === true;
@@ -347,12 +347,12 @@ function InterviewRunner() {
                 key={i}
                 onClick={() => handleNavigation(i)}
                 className={`w-3 h-3 rounded-full cursor-pointer transition-all ${i === currentQuestionIndex
-                    ? 'bg-blue-600 scale-125 ring-2 ring-blue-200'
-                    : q.isEvaluated
-                      ? 'bg-emerald-500'
-                      : (q.isSubmitted || submittedLocal[i])
-                        ? 'bg-amber-400 animate-pulse'
-                        : 'bg-slate-200'
+                  ? 'bg-blue-600 scale-125 ring-2 ring-blue-200'
+                  : q.isEvaluated
+                    ? 'bg-emerald-500'
+                    : (q.isSubmitted || submittedLocal[i])
+                      ? 'bg-amber-400 animate-pulse'
+                      : 'bg-slate-200'
                   }`}
               />
             ))}
@@ -479,12 +479,12 @@ function InterviewRunner() {
             onClick={handleSubmitAnswer}
             disabled={isQuestionLocked}
             className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${isProcessing
-                ? 'bg-slate-400 cursor-wait'
-                : currentQuestion?.isEvaluated
-                  ? 'bg-emerald-500'
-                  : isQuestionLocked
-                    ? 'bg-slate-400'
-                    : 'bg-slate-900 hover:bg-slate-800 active:scale-95'
+              ? 'bg-slate-400 cursor-wait'
+              : currentQuestion?.isEvaluated
+                ? 'bg-emerald-500'
+                : isQuestionLocked
+                  ? 'bg-slate-400'
+                  : 'bg-slate-900 hover:bg-slate-800 active:scale-95'
               }`}
           >
             {isProcessing ? "Analyzing..." : currentQuestion?.isEvaluated ? "Answer Submitted" : isQuestionLocked ? "Submitted" : "Submit Answer"}
