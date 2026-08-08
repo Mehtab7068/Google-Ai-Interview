@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getSessionById, submitAnswer, endSession } from '../features/sessions/sessionSlice';
+import { getSessionById, submitAnswer, endSession, resetSessionState } from '../features/sessions/sessionSlice';
 import MonacoEditor from '@monaco-editor/react';
 import { toast } from 'react-toastify';
 
@@ -83,12 +83,14 @@ function InterviewRunner() {
       navigate('/', { replace: true });
       return;
     }
+
+    dispatch(resetSessionState());
     dispatch(getSessionById(sessionId));
   }, [sessionId, dispatch, navigate]);
 
   const questions = Array.isArray(activeSession?.questions) ? activeSession.questions : [];
   const currentQuestion = questions[currentQuestionIndex] || null;
-  const isGeneratingQuestions = ['pending', 'processing', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status);
+  const isGeneratingQuestions = ['pending', 'processing', 'AI_GENERATING_QUESTIONS', 'in-progress'].includes(activeSession?.status);
 
   // Refresh session details while question generation is still active and no questions exist yet.
   useEffect(() => {
