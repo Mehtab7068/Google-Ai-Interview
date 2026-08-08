@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useSelector, useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { createSession, getSessions,reset,deleteSession } from '../features/sessions/sessionSlice'
+import { createSession, getSessions, reset, deleteSession } from '../features/sessions/sessionSlice'
 import { toast } from 'react-toastify'
 import SessionCard from "../components/SessionCard"
 
@@ -44,8 +44,10 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    dispatch(getSessions());
-  }, [dispatch]);
+    if (user && user.token) {
+      dispatch(getSessions());
+    }
+  }, [dispatch, user]);
 
   useEffect(() => {
     if (isError && message) {
@@ -64,12 +66,12 @@ const Dashboard = () => {
   }
 
   const viewSession = (session) => {
-    if (session.status === 'completed') {
+    if (session.status === 'completed' && session._id) {
       navigate(`/review/${session._id}`);
-    } else if(session.status === 'in-progress') {
+    } else if (session.status === 'in-progress' && session._id) {
       navigate(`/interview/${session._id}`);
-    }else{
-      toast.info('Session not ready yet')
+    } else {
+      toast.info('Session not ready yet');
     }
   }
 
@@ -133,7 +135,7 @@ const Dashboard = () => {
             {isProcessing ? <><span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span> Generating...</> : <span className="text-sm">Start Interview</span>}
           </button>
         </form>
-</div> {/* 3. Closing div for the card moved here */}
+      </div> {/* 3. Closing div for the card moved here */}
 
       {/* HISTORY LIST (Now separate from the creation card) */}
       <div className="space-y-6 pb-20 sm:pb-0">
@@ -150,7 +152,7 @@ const Dashboard = () => {
           ) : (
             <div className="space-y-4">
               {sessions.map((session) => (
-                <SessionCard key={session._id} session={session} onClick={viewSession} onDelete={handleDelete}/>
+                <SessionCard key={session._id} session={session} onClick={viewSession} onDelete={handleDelete} />
               ))}
             </div>
           )
