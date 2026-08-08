@@ -34,9 +34,11 @@ const useSocket = () => {
         console.log('Real-time Session Update:', payload.status);
 
         dispatch(setRealtimeSessionUpdate(payload));
+
         if (payload.status === 'QUESTIONS_READY') {
-          if (payload.sessionId) {
-            navigate(`/interview/${payload.sessionId}`);
+          const sessionId = payload.sessionId || payload.session?.sessionId || payload.session?._id;
+          if (sessionId) {
+            navigate(`/interview/${sessionId}`);
           } else {
             console.error('Missing sessionId in QUESTIONS_READY payload', payload);
           }

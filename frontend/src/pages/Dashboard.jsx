@@ -62,18 +62,37 @@ const Dashboard = () => {
 
   const onSubmit = (e) => {
     e.preventDefault();
-    dispatch(createSession(formData));
+    dispatch(createSession(formData))
+      .unwrap()
+      .then((session) => {
+        const sessionId = session._id || session.sessionId;
+        if (sessionId) {
+          navigate(`/interview/${sessionId}`);
+        }
+      })
+      .catch(() => {
+        toast.error('Unable to create session. Please try again.');
+      });
   }
 
   const viewSession = (session) => {
     const sessionIdOrFallback = session._id || session.sessionId;
-    if (session.status === 'completed' && sessionIdOrFallback) {
-      navigate(`/review/${sessionIdOrFallback}`);
-    } else if (session.status === 'in-progress' && sessionIdOrFallback) {
-      navigate(`/interview/${sessionIdOrFallback}`);
-    } else {
-      toast.info('Session not ready yet');
+    if (!sessionIdOrFallback) {
+      toast.error('Session ID is unavailable.');
+      return;
     }
+
+    if (session.status === 'completed') {
+      navigate(`/review/${sessionIdOrFallback}`);
+      return;
+    }
+
+    if (session.status === 'failed') {
+      toast.error('Session failed to generate. Please delete or create a new one.');
+      return;
+    }
+
+    navigate(`/interview/${sessionIdOrFallback}`);
   }
 
 

@@ -81,7 +81,7 @@ export const submitAnswer = createAsyncThunk(
           ...(token && { Authorization: `Bearer ${token}` })
         }
       };
-      const response = await axios.post(`${API_URL}/${sessionId}/answer`, formData, config);
+      const response = await axios.post(`${API_URL}/${sessionId}/submit-answer`, formData, config);
       return response.data;
     } catch (error) {
       const message = error.response?.data?.message || error.message;
@@ -134,21 +134,24 @@ export const sessionSlice = createSlice({
     },
     // Socket listener dispatch target
     setRealtimeSessionUpdate: (state, action) => {
-      if (state.activeSession) {
-        state.activeSession = {
-          ...state.activeSession,
-          ...action.payload,
-          // Preserve questions array cleanly without making it undefined
-          questions: action.payload?.questions || state.activeSession.questions || []
-        };
-      } else {
-        state.activeSession = {
-          ...action.payload,
-          questions: action.payload?.questions || []
-        };
-      }
-      if (action.payload?.message) {
-        state.message = action.payload.message;
+      const payload = action.payload || {};
+      const sessionData = payload.session || payload;
+      const questions = Array.isArray(sessionData.questions)
+        ? sessionData.questions
+        : Array.isArray(state.activeSession?.questions)
+          ? state.activeSession.questions
+          : [];
+
+      state.activeSession = {
+        ...state.activeSession,
+        ...sessionData,
+        status: payload.status || sessionData.status || state.activeSession?.status,
+        sessionId: payload.sessionId || sessionData._id || state.activeSession?.sessionId,
+        questions,
+      };
+
+      if (payload?.message) {
+        state.message = payload.message;
       }
     }
   },
@@ -214,14 +217,9 @@ export const sessionSlice = createSlice({
       .addCase(submitAnswer.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(submitAnswer.fulfilled, (state, action) => {
+      .addCase(submitAnswer.fulfilled, (state) => {
         state.isLoading = false;
-        if (state.activeSession) {
-          state.activeSession = {
-            ...action.payload,
-            questions: Array.isArray(action.payload?.questions) ? action.payload.questions : state.activeSession.questions
-          };
-        }
+        state.isSuccess = true;
       })
       .addCase(submitAnswer.rejected, (state, action) => {
         state.isLoading = false;
