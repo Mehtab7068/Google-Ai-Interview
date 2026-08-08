@@ -3,6 +3,51 @@ import axios from 'axios';
 
 const API_URL = 'https://google-ai-interview-express-backend.onrender.com/api/sessions';
 
+export const getSessions = createAsyncThunk(
+  'sessions/getAll',
+  async (_, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth?.user?.token;
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.get(API_URL, config);
+      return response.data;
+    } catch (error) {
+      const message = error.response?.data?.message || error.message;
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
+export const createSession = createAsyncThunk(
+  'sessions/create',
+  async (sessionData, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth?.user?.token;
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      const response = await axios.post(API_URL, sessionData, config);
+      return response.data;
+    } catch (error) {
+      const message = error.response?.data?.message || error.message;
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
+export const deleteSession = createAsyncThunk(
+  'sessions/delete',
+  async (sessionId, thunkAPI) => {
+    try {
+      const token = thunkAPI.getState().auth?.user?.token;
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      await axios.delete(`${API_URL}/${sessionId}`, config);
+      return sessionId;
+    } catch (error) {
+      const message = error.response?.data?.message || error.message;
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
+
 export const getSessionById = createAsyncThunk(
   'sessions/getById',
   async (sessionId, thunkAPI) => {
@@ -57,9 +102,12 @@ export const endSession = createAsyncThunk(
 );
 
 const initialState = {
+  sessions: [],
   activeSession: null,
   isLoading: false,
+  isGenerating: false,
   isError: false,
+  isSuccess: false,
   message: ''
 };
 
@@ -67,6 +115,13 @@ export const sessionSlice = createSlice({
   name: 'sessions',
   initialState,
   reducers: {
+    reset: (state) => {
+      state.isLoading = false;
+      state.isGenerating = false;
+      state.isSuccess = false;
+      state.isError = false;
+      state.message = '';
+    },
     resetSessionState: (state) => {
       state.activeSession = null;
       state.isLoading = false;
@@ -95,6 +150,46 @@ export const sessionSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Get all sessions
+      .addCase(getSessions.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(getSessions.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.sessions = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(getSessions.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+      // Create session
+      .addCase(createSession.pending, (state) => {
+        state.isGenerating = true;
+      })
+      .addCase(createSession.fulfilled, (state, action) => {
+        state.isGenerating = false;
+        state.isSuccess = true;
+        state.sessions = [action.payload, ...state.sessions];
+      })
+      .addCase(createSession.rejected, (state, action) => {
+        state.isGenerating = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+      // Delete session
+      .addCase(deleteSession.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(deleteSession.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.sessions = state.sessions.filter((session) => session._id !== action.payload);
+      })
+      .addCase(deleteSession.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
       // Get Session
       .addCase(getSessionById.pending, (state) => {
         state.isLoading = true;
@@ -144,5 +239,5 @@ export const sessionSlice = createSlice({
   }
 });
 
-export const { resetSessionState, setRealtimeSessionUpdate } = sessionSlice.actions;
+export const { reset, resetSessionState, setRealtimeSessionUpdate } = sessionSlice.actions;
 export default sessionSlice.reducer;
