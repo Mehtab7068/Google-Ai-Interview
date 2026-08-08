@@ -119,6 +119,8 @@ function InterviewRunner() {
   // Safe question getters
   const questions = Array.isArray(activeSession?.questions) ? activeSession.questions : [];
   const currentQuestion = questions[currentQuestionIndex] || null;
+  const isGeneratingQuestions = ['pending', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status);
+  const hasFailed = activeSession?.status === 'failed';
 
   const isReduxSubmitted = currentQuestion?.isSubmitted === true;
   const isLocallySubmitted = submittedLocal[currentQuestionIndex] === true;
@@ -302,7 +304,7 @@ function InterviewRunner() {
   }
 
   // Handle loading and question generation states
-  if (!activeSession || activeSession.status === 'AI_GENERATING_QUESTIONS' || questions.length === 0) {
+  if (!activeSession || (questions.length === 0 && isGeneratingQuestions)) {
     return (
       <div className="max-w-xl mx-auto my-20 p-8 bg-white rounded-3xl border border-slate-100 shadow-sm text-center">
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -310,6 +312,24 @@ function InterviewRunner() {
         <p className="text-sm text-slate-500 mt-2">
           {message || "AI is generating tailored questions for your session. Please wait..."}
         </p>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto my-20 p-8 bg-white rounded-3xl border border-red-100 shadow-sm text-center">
+        <h2 className="text-xl font-bold text-slate-900">Unable to generate questions</h2>
+        <p className="text-sm text-slate-500 mt-2">
+          {message || 'The interview generator failed or took too long. Please try again later.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          Back to Dashboard
+        </button>
       </div>
     );
   }
@@ -326,15 +346,14 @@ function InterviewRunner() {
               <div
                 key={i}
                 onClick={() => handleNavigation(i)}
-                className={`w-3 h-3 rounded-full cursor-pointer transition-all ${
-                  i === currentQuestionIndex
+                className={`w-3 h-3 rounded-full cursor-pointer transition-all ${i === currentQuestionIndex
                     ? 'bg-blue-600 scale-125 ring-2 ring-blue-200'
                     : q.isEvaluated
-                    ? 'bg-emerald-500'
-                    : (q.isSubmitted || submittedLocal[i])
-                    ? 'bg-amber-400 animate-pulse'
-                    : 'bg-slate-200'
-                }`}
+                      ? 'bg-emerald-500'
+                      : (q.isSubmitted || submittedLocal[i])
+                        ? 'bg-amber-400 animate-pulse'
+                        : 'bg-slate-200'
+                  }`}
               />
             ))}
           </div>
@@ -459,15 +478,14 @@ function InterviewRunner() {
           <button
             onClick={handleSubmitAnswer}
             disabled={isQuestionLocked}
-            className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${
-              isProcessing
+            className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition-all ${isProcessing
                 ? 'bg-slate-400 cursor-wait'
                 : currentQuestion?.isEvaluated
-                ? 'bg-emerald-500'
-                : isQuestionLocked
-                ? 'bg-slate-400'
-                : 'bg-slate-900 hover:bg-slate-800 active:scale-95'
-            }`}
+                  ? 'bg-emerald-500'
+                  : isQuestionLocked
+                    ? 'bg-slate-400'
+                    : 'bg-slate-900 hover:bg-slate-800 active:scale-95'
+              }`}
           >
             {isProcessing ? "Analyzing..." : currentQuestion?.isEvaluated ? "Answer Submitted" : isQuestionLocked ? "Submitted" : "Submit Answer"}
           </button>

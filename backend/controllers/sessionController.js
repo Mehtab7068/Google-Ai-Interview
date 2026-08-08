@@ -14,7 +14,7 @@ const pushSocketUpdate = (io, userId, sessionId, status, message, session = null
     if (!io) return;
     io.to(userId.toString()).emit('sessionUpdate', {
         sessionId,
-        status, 
+        status,
         message,
         session,
     });
@@ -55,6 +55,10 @@ const createSession = asyncHandler(async (req, res) => {
         try {
             pushSocketUpdate(io, userId, session._id, 'AI_GENERATING_QUESTIONS', `Generating ${count} questions for ${role}...`);
 
+            const controller = new AbortController();
+            const timeoutMs = 45000;
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
             const aiResponse = await fetch(`${AI_SERVICE_URL}/generate-questions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -64,7 +68,10 @@ const createSession = asyncHandler(async (req, res) => {
                     count,
                     interview_type: interviewType
                 }),
+                signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             if (!aiResponse.ok) {
                 const errorBody = await aiResponse.text();
@@ -73,7 +80,7 @@ const createSession = asyncHandler(async (req, res) => {
 
             const aiData = await aiResponse.json();
             const codingCount = interviewType === 'coding-mix' ? Math.floor(count * 0.2) : 0;
-            
+
             const questionsArray = aiData.questions.map((qText, index) => ({
                 questionText: qText,
                 questionType: index < codingCount ? 'coding' : 'oral',
@@ -161,13 +168,13 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
     if (audioFilePath) {
         try {
             pushSocketUpdate(io, userId, sessionId, 'AI_TRANSCRIBING', `Transcribing audio for Q${questionIdx + 1}...`);
-            
+
             const filename = path.basename(audioFilePath);
             const ext = path.extname(audioFilePath) || '.webm';
-            
+
             // FIXED: Safe Stream Creation with autoClose disabled during append
             const fileStream = fs.createReadStream(audioFilePath, { autoClose: true });
-            
+
             const formData = new FormData();
             formData.append('file', fileStream, {
                 filename: filename.includes('.') ? filename : `recording${ext}`,
@@ -176,7 +183,7 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
 
             // FIXED: Extended AbortController timeout to 120s for Gemini operations
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000); 
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
 
             const transResponse = await fetch(`${AI_SERVICE_URL}/transcribe`, {
                 method: 'POST',
@@ -198,10 +205,10 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
             const transData = await transResponse.json();
             transcription = transData.transcription || "";
             console.log(`✅ Transcription received for Q${questionIdx + 1}:`, transcription);
-            
+
         } catch (error) {
             console.error(`⚠️ Transcription Step Failed for Q${questionIdx + 1}: ${error.message}`);
-            transcription = "[Audio transcription failed or timed out]"; 
+            transcription = "[Audio transcription failed or timed out]";
         } finally {
             // Clean up temporary local file
             if (audioFilePath && fs.existsSync(audioFilePath)) {
