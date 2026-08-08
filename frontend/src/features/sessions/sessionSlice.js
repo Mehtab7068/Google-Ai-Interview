@@ -75,12 +75,9 @@ export const submitAnswer = createAsyncThunk(
   async ({ sessionId, formData }, thunkAPI) => {
     try {
       const token = thunkAPI.getState().auth?.user?.token;
-      const config = {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...(token && { Authorization: `Bearer ${token}` })
-        }
-      };
+      const config = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
       const response = await axios.post(`${API_URL}/${sessionId}/submit-answer`, formData, config);
       return response.data;
     } catch (error) {
