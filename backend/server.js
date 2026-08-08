@@ -51,7 +51,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Explicitly handle HTTP OPTIONS preflight requests for all endpoints
-app.options("/*", cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 /* =========================================================
    3. SOCKET.IO SETUP
