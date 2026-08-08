@@ -67,45 +67,72 @@ const loginUser = asyncHandler(async (req, res) => {
 
 
 const googleLogin = asyncHandler(async (req, res) => {
-  
     const { token } = req.body; 
 
-   
-    const ticket = await client.verifyIdToken({
-        idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
+    // 1. Guard check: Ensure token exists in payload
+    if (!token) {
+        res.status(400);
+        throw new Error('Google ID token is required.');
+    }
+
+    // 2. Ensure Client ID is configured in server env
+    if (!process.env.GOOGLE_CLIENT_ID) {
+        console.error('❌ GOOGLE_CLIENT_ID missing in server environment variables!');
+        res.status(500);
+        throw new Error('Server authentication configuration error.');
+    }
+
+    let ticket;
+    try {
+        ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+    } catch (error) {
+        console.error('❌ Google Token Verification Error:', error.message);
+        res.status(401);
+        throw new Error('Invalid or expired Google token.');
+    }
 
     const payload = ticket.getPayload();
+    if (!payload) {
+        res.status(401);
+        throw new Error('Invalid token payload.');
+    }
+
     const { email_verified, name, email, sub: googleId } = payload;
 
     if (!email_verified) {
         res.status(401);
         throw new Error('Google email not verified. Login failed.');
     }
-    
-    
+
     let user = await User.findOne({ email });
 
     if (user) {
-        
+        // Link googleId if user exists via password registration
         if (!user.googleId) {
             user.googleId = googleId;
             await user.save();
         }
     } else {
+        // Generate a random secure dummy password for Google users to bypass required schema checks
+        const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
         
-        user = await User.create({ name, email, googleId, password: null });
+        user = await User.create({ 
+            name, 
+            email, 
+            googleId, 
+            password: randomPassword 
+        });
     }
 
-    
     if (user) {
         res.status(200).json({
             _id: user._id,
             name: user.name,
             email: user.email,
-            preferredRole: user.preferredRole,
+            preferredRole: user.preferredRole || '',
             token: generateToken(user._id),
         });
     } else {
