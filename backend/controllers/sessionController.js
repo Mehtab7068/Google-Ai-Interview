@@ -7,7 +7,7 @@ import path from 'path';
 import mongoose from 'mongoose';
 
 // FIXED: Use explicit IPv4 loopback to avoid Node 18+ IPv6 resolution aborts
-const AI_SERVICE_URL = 'http://127.0.0.1:8000';
+const AI_SERVICE_URL = 'https://google-ai-interview.onrender.com';
 
 // Helper function to send an update via Socket.io
 const pushSocketUpdate = (io, userId, sessionId, status, message, session = null) => {
