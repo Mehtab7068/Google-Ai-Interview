@@ -19,16 +19,12 @@ const server = http.createServer(app);
 /* =========================================================
    1. SECURITY HEADERS (MUST BE FIRST)
    ========================================================= */
-// app.use(
-//   helmet({
-//     // Allows Google OAuth popups to send postMessage back to frontend
-//     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
-//   })
-// );
-app.use((req, res, next) => {
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-  next();
-});
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 /* =========================================================
    2. CORS CONFIGURATION
