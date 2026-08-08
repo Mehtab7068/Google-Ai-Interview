@@ -56,7 +56,7 @@ const createSession = asyncHandler(async (req, res) => {
             pushSocketUpdate(io, userId, session._id, 'AI_GENERATING_QUESTIONS', `Generating ${count} questions for ${role}...`);
 
             const controller = new AbortController();
-            const timeoutMs = 45000;
+            const timeoutMs = 120000;
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
             const aiResponse = await fetch(`${AI_SERVICE_URL}/generate-questions`, {

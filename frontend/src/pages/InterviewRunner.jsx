@@ -86,6 +86,19 @@ function InterviewRunner() {
     dispatch(getSessionById(sessionId));
   }, [sessionId, dispatch, navigate]);
 
+  // Refresh session details while question generation is still active and no questions exist yet.
+  useEffect(() => {
+    if (!sessionId) return;
+    if (!activeSession || questions.length > 0) return;
+    if (!['pending', 'processing', 'AI_GENERATING_QUESTIONS'].includes(activeSession?.status)) return;
+
+    const interval = setInterval(() => {
+      dispatch(getSessionById(sessionId));
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [sessionId, activeSession, questions.length, dispatch]);
+
   // Automatically select default language based on role
   useEffect(() => {
     if (activeSession?.role) {
