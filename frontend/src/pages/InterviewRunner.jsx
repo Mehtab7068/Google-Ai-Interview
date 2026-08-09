@@ -298,23 +298,6 @@ function InterviewRunner() {
     return (q.isSubmitted || submittedLocal[i]) && !q.isEvaluated;
   });
 
-  const handleFinishInterview = () => {
-    if (isAnyQuestionProcessing) {
-      toast.warning("Please wait a moment. AI is still finishing its analysis on your final answers.");
-      return;
-    }
-
-    if (!window.confirm("Are you sure you want to finish?")) return;
-
-    dispatch(endSession(sessionId))
-      .unwrap()
-      .then(() => {
-        localStorage.removeItem(`drafts_${sessionId}`);
-        navigate(`/review/${sessionId}`);
-      })
-      .catch(() => toast.error("Could not finish session. AI is working on it."));
-  };
-
   if (!sessionId || sessionId === 'undefined') {
     return null;
   }
