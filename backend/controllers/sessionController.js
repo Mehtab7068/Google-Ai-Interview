@@ -6,7 +6,9 @@ import FormData from 'form-data';
 import path from 'path';
 import mongoose from 'mongoose';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'https://google-ai-interview.onrender.com';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || (process.env.NODE_ENV === 'development'
+    ? 'http://localhost:8000'
+    : 'https://google-ai-interview.onrender.com');
 
 const generateFallbackQuestions = (role, level, count, interviewType) => {
     const questionCount = Number(count) || 5;
