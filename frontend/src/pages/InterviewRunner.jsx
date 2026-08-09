@@ -255,7 +255,7 @@ function InterviewRunner() {
 
     const draft = drafts[currentQuestionIndex];
     const code = draft?.code || '';
-    let audio = recordedData?.blob || draft?.audioBlob;
+    let audio = recordedData?.audioFile || recordedData?.blob || draft?.audioFile || draft?.audioBlob;
 
     if (!audio && audioChunksRef.current && audioChunksRef.current.length > 0) {
       const type = mediaRecorderRef.current?.mimeType || 'audio/webm';
@@ -267,6 +267,11 @@ function InterviewRunner() {
       return;
     }
 
+    if (audio && audio.size === 0) {
+      toast.error("Recorded audio appears to be empty. Please re-record your answer.");
+      return;
+    }
+
     setSubmittedLocal((prev) => ({ ...prev, [currentQuestionIndex]: true }));
 
     const formData = new FormData();
@@ -274,8 +279,8 @@ function InterviewRunner() {
     if (code) formData.append('code', code);
 
     if (audio && audio.size > 0) {
-      const extension = audio.type.includes('mp4') || audio.type.includes('aac') ? 'mp4' : 'webm';
-      formData.append('file', audio, `answer_${currentQuestionIndex}.${extension}`);
+      const filename = audio.name || `answer_${currentQuestionIndex}.${audio.type.includes('mp4') || audio.type.includes('aac') ? 'mp4' : 'webm'}`;
+      formData.append('file', audio, filename);
     }
 
     dispatch(submitAnswer({ sessionId, formData }))

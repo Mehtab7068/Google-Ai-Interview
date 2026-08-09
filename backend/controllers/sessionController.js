@@ -6,8 +6,34 @@ import FormData from 'form-data';
 import path from 'path';
 import mongoose from 'mongoose';
 
-// FIXED: Use explicit IPv4 loopback to avoid Node 18+ IPv6 resolution aborts
-const AI_SERVICE_URL = 'https://google-ai-interview.onrender.com';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'https://google-ai-interview.onrender.com';
+
+const generateFallbackQuestions = (role, level, count, interviewType) => {
+    const questionCount = Number(count) || 5;
+    const codingCount = interviewType === 'coding-mix' ? Math.max(1, Math.floor(questionCount * 0.2)) : 0;
+    const oralCount = questionCount - codingCount;
+    const baseRole = role || 'the requested role';
+    const seniority = level || 'Mid-Level';
+
+    const fallbackQuestions = [];
+    for (let i = 0; i < codingCount; i += 1) {
+        fallbackQuestions.push(`Design and explain an algorithm or system for a ${seniority} ${baseRole} that solves a real-world problem relevant to the role.`);
+    }
+
+    const oralTemplates = [
+        `Describe a common architecture or workflow for a ${seniority} ${baseRole} and explain the tradeoffs involved.`,
+        `Explain how you would approach debugging a production issue in a ${baseRole} codebase.`,
+        `What are the most important performance or security concerns for a ${baseRole}, and how would you address them?`,
+        `Discuss best practices for collaborating with cross-functional teams in a ${baseRole} role.`,
+        `Summarize the core design patterns or principles that a ${seniority} ${baseRole} should apply in their work.`,
+    ];
+
+    for (let i = 0; i < oralCount; i += 1) {
+        fallbackQuestions.push(oralTemplates[i % oralTemplates.length]);
+    }
+
+    return fallbackQuestions.slice(0, questionCount);
+};
 
 // Helper function to send an update via Socket.io
 const pushSocketUpdate = (io, userId, sessionId, status, message, session = null) => {
@@ -59,40 +85,62 @@ const createSession = asyncHandler(async (req, res) => {
             const timeoutMs = 120000;
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-            const aiResponse = await fetch(`${AI_SERVICE_URL}/generate-questions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    role,
-                    level,
-                    count,
-                    interview_type: interviewType
-                }),
-                signal: controller.signal,
-            });
+            let questionsArray = [];
+            let source = 'remote';
 
-            clearTimeout(timeoutId);
+            try {
+                const aiResponse = await fetch(`${AI_SERVICE_URL}/generate-questions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        role,
+                        level,
+                        count,
+                        interview_type: interviewType
+                    }),
+                    signal: controller.signal,
+                });
 
-            if (!aiResponse.ok) {
-                const errorBody = await aiResponse.text();
-                throw new Error(`AI Service error: ${aiResponse.status} - ${errorBody}`);
+                clearTimeout(timeoutId);
+
+                if (!aiResponse.ok) {
+                    const errorBody = await aiResponse.text();
+                    throw new Error(`AI Service error: ${aiResponse.status} - ${errorBody}`);
+                }
+
+                const aiData = await aiResponse.json();
+                const codingCount = interviewType === 'coding-mix' ? Math.floor(count * 0.2) : 0;
+
+                questionsArray = Array.isArray(aiData.questions)
+                    ? aiData.questions.map((qText, index) => ({
+                        questionText: qText,
+                        questionType: index < codingCount ? 'coding' : 'oral',
+                        isEvaluated: false,
+                        isSubmitted: false,
+                    }))
+                    : [];
+
+                if (questionsArray.length === 0) {
+                    throw new Error('AI returned no questions.');
+                }
+            } catch (error) {
+                console.error(`AI generation failed for session ${session._id}:`, error.message);
+                source = 'fallback';
+                const fallbackQuestions = generateFallbackQuestions(role, level, count, interviewType);
+                const codingCount = interviewType === 'coding-mix' ? Math.floor(count * 0.2) : 0;
+                questionsArray = fallbackQuestions.map((qText, index) => ({
+                    questionText: qText,
+                    questionType: index < codingCount ? 'coding' : 'oral',
+                    isEvaluated: false,
+                    isSubmitted: false,
+                }));
             }
-
-            const aiData = await aiResponse.json();
-            const codingCount = interviewType === 'coding-mix' ? Math.floor(count * 0.2) : 0;
-
-            const questionsArray = aiData.questions.map((qText, index) => ({
-                questionText: qText,
-                questionType: index < codingCount ? 'coding' : 'oral',
-                isEvaluated: false,
-                isSubmitted: false,
-            }));
 
             session.questions = questionsArray;
             session.status = 'in-progress';
             await session.save();
 
-            pushSocketUpdate(io, userId, session._id, 'QUESTIONS_READY', 'Questions generated successfully. Starting session.', session);
+            pushSocketUpdate(io, userId, session._id, 'QUESTIONS_READY', `Questions generated successfully (${source}). Starting session.`, session);
 
         } catch (error) {
             console.error(`Session Creation Failure for ${session._id}:`, error.message);
@@ -331,12 +379,29 @@ const submitAnswer = asyncHandler(async (req, res) => {
         const question = session.questions[questionIdx];
 
         let audioFilePath = null;
-        if (req.file && req.file.path) {
-            // FIXED: Safely resolve path without duplicating process.cwd()
-            audioFilePath = path.resolve(req.file.path);
+        if (req.file) {
+            console.log('Audio upload details:', {
+                originalname: req.file.originalname,
+                mimetype: req.file.mimetype,
+                size: req.file.size,
+                path: req.file.path,
+            });
+
+            if (req.file.size === 0) {
+                res.status(400);
+                throw new Error('Uploaded audio file is empty. Please re-record and submit again.');
+            }
+
+            if (req.file.path) {
+                audioFilePath = path.resolve(req.file.path);
+            }
         }
 
         const codeSubmission = code || null;
+        if (!audioFilePath && !codeSubmission) {
+            res.status(400);
+            throw new Error('Submission must include either audio or code.');
+        }
 
         question.isSubmitted = true;
         await session.save();
