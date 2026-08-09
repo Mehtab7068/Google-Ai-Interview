@@ -9,6 +9,28 @@ import mongoose from 'mongoose';
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || (process.env.NODE_ENV === 'development'
     ? 'http://localhost:8000'
     : 'https://google-ai-interview.onrender.com');
+const REMOTE_AI_SERVICE_URL = 'https://google-ai-interview.onrender.com';
+
+const requestAiService = async (endpoint, options = {}) => {
+    const urlsToTry = [AI_SERVICE_URL];
+    if (!process.env.AI_SERVICE_URL && AI_SERVICE_URL.startsWith('http://localhost:8000')) {
+        urlsToTry.push(REMOTE_AI_SERVICE_URL);
+    }
+
+    let lastError = null;
+    for (let index = 0; index < urlsToTry.length; index += 1) {
+        const baseUrl = urlsToTry[index];
+        const requestOptions = index > 0 ? { ...options, signal: undefined } : options;
+        try {
+            return await fetch(`${baseUrl}${endpoint}`, requestOptions);
+        } catch (error) {
+            lastError = error;
+            console.error(`AI service request failed for ${baseUrl}${endpoint}:`, error.message);
+        }
+    }
+
+    throw lastError || new Error(`AI service request failed for ${endpoint}`);
+};
 
 const generateFallbackQuestions = (role, level, count, interviewType) => {
     const questionCount = Number(count) || 5;
@@ -91,7 +113,7 @@ const createSession = asyncHandler(async (req, res) => {
             let source = 'remote';
 
             try {
-                const aiResponse = await fetch(`${AI_SERVICE_URL}/generate-questions`, {
+                const aiResponse = await requestAiService('/generate-questions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -235,7 +257,7 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-            const transResponse = await fetch(`${AI_SERVICE_URL}/transcribe`, {
+            const transResponse = await requestAiService('/transcribe', {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -275,7 +297,7 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
     try {
         pushSocketUpdate(io, userId, sessionId, 'AI_EVALUATING', `AI is analyzing Q${questionIdx + 1}...`);
 
-        const evalResponse = await fetch(`${AI_SERVICE_URL}/evaluate`, {
+        const evalResponse = await requestAiService('/evaluate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
