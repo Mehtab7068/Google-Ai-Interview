@@ -298,6 +298,23 @@ function InterviewRunner() {
     return (q.isSubmitted || submittedLocal[i]) && !q.isEvaluated;
   });
 
+  const handleFinishInterview = () => {
+    if (isAnyQuestionProcessing) {
+      toast.warning("Please wait a moment. AI is still finishing its analysis on your final answers.");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to finish the interview?")) return;
+
+    dispatch(endSession(sessionId))
+      .unwrap()
+      .then(() => {
+        localStorage.removeItem(`drafts_${sessionId}`);
+        navigate(`/review/${sessionId}`);
+      })
+      .catch(() => toast.error("Could not finish session. AI is working on it."));
+  };
+
   if (!sessionId || sessionId === 'undefined') {
     return null;
   }
@@ -498,13 +515,21 @@ function InterviewRunner() {
             </button>
           </div>
 
-          <button
-            onClick={() => handleNavigation(currentQuestionIndex + 1)}
-            disabled={questions.length === 0 || currentQuestionIndex === questions.length - 1}
-            className="rounded-3xl border border-slate-700/80 bg-slate-900 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-slate-300 transition hover:border-teal-400 hover:text-white disabled:opacity-40"
-          >
-            Next →
-          </button>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <button
+              onClick={() => handleNavigation(currentQuestionIndex + 1)}
+              disabled={questions.length === 0 || currentQuestionIndex === questions.length - 1}
+              className="rounded-3xl border border-slate-700/80 bg-slate-900 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-slate-300 transition hover:border-teal-400 hover:text-white disabled:opacity-40"
+            >
+              Next →
+            </button>
+            <button
+              onClick={handleFinishInterview}
+              className="rounded-3xl border border-teal-400 bg-teal-500/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-teal-200 transition hover:bg-teal-500/20"
+            >
+              Finish Interview
+            </button>
+          </div>
         </div>
       </div>
     </div>
