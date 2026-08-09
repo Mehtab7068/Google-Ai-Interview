@@ -1,6 +1,18 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
 
 body {
-  @apply bg-gray-50;
+  @apply bg-slate-950 text-slate-100;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 7s ease-in-out infinite;
 }

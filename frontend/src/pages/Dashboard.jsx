@@ -107,67 +107,96 @@ const Dashboard = () => {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12 space-y-8 sm:space-y-12 animate-in duration-700">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12 space-y-8 sm:space-y-12">
+      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+        <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/90 p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-teal-400">Welcome back</p>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Hello, <span className="text-teal-300">{user.name.split(' ')[0]}</span></h1>
+              <p className="max-w-2xl text-slate-400 text-sm sm:text-base">Launch tailored technical interviews, rehearse answers, and track your progress with a fast AI-powered workflow.</p>
+            </div>
+            <div className="rounded-3xl bg-slate-950/80 border border-slate-800 p-5 shadow-inner">
+              <p className="text-[10px] uppercase tracking-[0.35em] text-slate-500">Total sessions</p>
+              <p className="mt-3 text-4xl font-black text-teal-300">{sessions.length}</p>
+              <p className="mt-2 text-sm text-slate-400">Your practice history at a glance.</p>
+            </div>
+          </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6 sm:pb-8">
-        <div>
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">Welcome, <span className="text-teal-600">{user.name.split(' ')[0]}</span> </h1>
-          <p className="text-slate-500 mt-1 text-sm sm:text-lg font-medium">Ready for your technical prep?</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-teal-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border border-teal-100 flex sm:block items-center gap-2">
-            <p className="text-[10px] text-teal-600 font-bold uppercase tracking-wider">Total Sessions</p>
-            <p className="text-xl sm:text-2xl font-black text-teal-700 leading-none">{sessions.length}</p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-900/85 to-slate-800/70 p-6 shadow-lg shadow-teal-500/10 transition hover:-translate-y-1">
+              <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Next step</p>
+              <h2 className="mt-3 text-xl font-bold text-white">Create a new interview</h2>
+              <p className="mt-2 text-sm text-slate-400">Pick role, level, type and start a fresh session in seconds.</p>
+            </div>
+            <div className="rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-900/85 to-cyan-950/70 p-6 shadow-lg shadow-cyan-500/10 transition hover:-translate-y-1">
+              <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Quick tip</p>
+              <h2 className="mt-3 text-xl font-bold text-white">Use coding mix for balanced practice</h2>
+              <p className="mt-2 text-sm text-slate-400">Choose a mix of coding and oral questions to sharpen both technical thinking and verbal explanation.</p>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="bg-white rounded-2xl sm:rounded-[2.5rem] shadow-xl sm:shadow-2xl shadow-slate-200 border border-slate-100 overflow-hidden">
-        <div className="bg-slate-900 px-6 py-4 sm:px-8 sm:py-6">
-          <h2 className="text-lg font-bold text-white flex items-center">
-            <span className="bg-teal-500 w-1.5 h-5 rounded-full mr-3"></span>
-            New Interview
-          </h2>
-        </div>
-        <form onSubmit={onSubmit} className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 items-end">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Role</label>
-            <select name="role" value={formData.role} onChange={onChange} className="w-full bg-slate-50 border-none rounded-xl sm:rounded-2xl p-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-teal-500">
+
+        <aside className="rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.35em] text-teal-400">Session builder</p>
+              <h2 className="mt-3 text-2xl font-black text-white">Prepare your next interview</h2>
+            </div>
+            <div className="rounded-3xl bg-emerald-400/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.25em] text-emerald-300">Live</div>
+          </div>
+
+          <form onSubmit={onSubmit} className="mt-8 grid gap-4">
+            <label className="block text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Role</label>
+            <select name="role" value={formData.role} onChange={onChange} className="w-full rounded-3xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20">
               {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select>
-          </div>
-          <div className="grid grid-cols-2 gap-4 lg:contents">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Level</label>
-              <select name="level" value={formData.level} onChange={onChange} className="w-full bg-slate-50 border-none rounded-xl sm:rounded-2xl p-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-teal-500">
-                {LEVELS.map((level) => <option key={level} value={level}>{level}</option>)}</select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Length</label>
-              <select name="count" value={formData.count} onChange={onChange} className="w-full bg-slate-50 border-none rounded-xl sm:rounded-2xl p-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-teal-500">
-                {COUNTS.map((count) => <option key={count} value={count}>{count} Qs</option>)}</select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Type</label>
-            <select name="interviewType" value={formData.interviewType} onChange={onChange} className="w-full bg-slate-50 border-none rounded-xl sm:rounded-2xl p-3 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-teal-500">
-              {TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select>
-          </div>
-          <button type="submit" disabled={isProcessing} className={`w-full h-[48px] rounded-xl font-bold text-white flex items-center justify-center gap-2 ${isProcessing ? 'bg-slate-300' : 'bg-teal-600 hover:bg-teal-700'}`}>
-            {isProcessing ? <><span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span> Generating...</> : <span className="text-sm">Start Interview</span>}
-          </button>
-        </form>
-      </div> {/* 3. Closing div for the card moved here */}
 
-      {/* HISTORY LIST (Now separate from the creation card) */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Level</label>
+                <select name="level" value={formData.level} onChange={onChange} className="mt-2 w-full rounded-3xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20">
+                  {LEVELS.map((level) => <option key={level} value={level}>{level}</option>)}</select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Length</label>
+                <select name="count" value={formData.count} onChange={onChange} className="mt-2 w-full rounded-3xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20">
+                  {COUNTS.map((count) => <option key={count} value={count}>{count} Qs</option>)}</select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Type</label>
+              <select name="interviewType" value={formData.interviewType} onChange={onChange} className="mt-2 w-full rounded-3xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20">
+                {TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select>
+            </div>
+
+            <button type="submit" disabled={isProcessing} className={`mt-4 w-full rounded-3xl px-6 py-4 text-sm font-black uppercase tracking-[0.25em] text-white shadow-2xl transition ${isProcessing ? 'bg-slate-700 text-slate-300 cursor-not-allowed' : 'bg-gradient-to-r from-teal-400 to-cyan-500 hover:brightness-105'}`}>
+              {isProcessing ? <><span className="mr-3 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Generating...</> : 'Start Interview'}
+            </button>
+          </form>
+        </aside>
+      </div>
+
       <div className="space-y-6 pb-20 sm:pb-0">
-        <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center px-2"><span className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-lg sm:rounded-xl flex items-center justify-center mr-3 text-sm sm:text-lg">📊</span> Interview History</h2>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-3"><span className="inline-flex h-10 w-10 items-center justify-center rounded-3xl bg-slate-900 text-lg">📊</span> Interview History</h2>
+            <p className="text-sm text-slate-400 mt-2">Review your past sessions and continue any active interview.</p>
+          </div>
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/85 px-4 py-3 text-sm text-slate-300">
+            Active sessions: {sessions.filter((s) => s.status !== 'completed').length}
+          </div>
+        </div>
+
         {isLoading && sessions.length === 0 ? (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin h-12 w-12 border-t-2 border-b-2 border-teal-500 rounded-full"></div>
+            <div className="animate-spin h-12 w-12 rounded-full border-4 border-teal-400/30 border-t-teal-400" />
           </div>
         ) : (
           sessions.length === 0 ? (
-            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl sm:rounded-[2rem] py-16 sm:py-20 text-center">
-              <p className="text-slate-400 font-bold text-base sm:text-lg">No sessions yet.</p>
+            <div className="rounded-[2rem] border border-dashed border-slate-800/80 bg-slate-900/90 px-8 py-16 text-center text-slate-400">
+              <p className="text-lg font-semibold">No sessions yet.</p>
+              <p className="mt-3 text-sm text-slate-500">Create your first interview and start practicing instantly.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -178,7 +207,6 @@ const Dashboard = () => {
           )
         )}
       </div>
-
     </div>
   )
 }
