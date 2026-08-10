@@ -6,6 +6,19 @@ import FormData from 'form-data';
 import path from 'path';
 import mongoose from 'mongoose';
 
+const getAudioMimeType = (filename) => {
+    const ext = path.extname(filename || '').toLowerCase();
+    switch (ext) {
+        case '.mp4': return 'audio/mp4';
+        case '.webm': return 'audio/webm';
+        case '.wav': return 'audio/wav';
+        case '.ogg': return 'audio/ogg';
+        case '.aac': return 'audio/aac';
+        case '.mp3': return 'audio/mpeg';
+        default: return 'application/octet-stream';
+    }
+};
+
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || (process.env.NODE_ENV === 'development'
     ? 'http://localhost:8000'
     : 'https://google-ai-interview.onrender.com');
@@ -242,15 +255,15 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
             pushSocketUpdate(io, userId, sessionId, 'AI_TRANSCRIBING', `Transcribing audio for Q${questionIdx + 1}...`);
 
             const filename = path.basename(audioFilePath);
-            const ext = path.extname(audioFilePath) || '.webm';
+            const ext = path.extname(filename).toLowerCase() || '.webm';
+            const contentType = getAudioMimeType(filename || `recording${ext}`);
 
-            // FIXED: Safe Stream Creation with autoClose disabled during append
             const fileStream = fs.createReadStream(audioFilePath, { autoClose: true });
 
             const formData = new FormData();
             formData.append('file', fileStream, {
                 filename: filename.includes('.') ? filename : `recording${ext}`,
-                contentType: ext === '.mp4' ? 'audio/mp4' : 'audio/webm',
+                contentType,
             });
 
             // FIXED: Extended AbortController timeout to 120s for Gemini operations
@@ -276,6 +289,9 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
 
             const transData = await transResponse.json();
             transcription = transData.transcription || "";
+            if (!transcription.trim()) {
+                throw new Error('Audio transcription returned empty text from AI service.');
+            }
             console.log(`✅ Transcription received for Q${questionIdx + 1}:`, transcription);
 
         } catch (error) {
