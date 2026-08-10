@@ -107,7 +107,7 @@ const Dashboard = () => {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12 space-y-8 sm:space-y-12">
+    <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 py-6 sm:py-12 space-y-8 sm:space-y-12">
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/90 p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">

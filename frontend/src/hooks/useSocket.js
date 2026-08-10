@@ -1,6 +1,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
 import { setRealtimeSessionUpdate } from '../features/sessions/sessionSlice';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -34,6 +35,18 @@ const useSocket = () => {
         console.log('Real-time Session Update:', payload.status);
 
         dispatch(setRealtimeSessionUpdate(payload));
+
+        if (payload.status === 'EVALUATION_FAILED' || payload.status === 'GENERATION_FAILED') {
+          toast.error(payload.message || 'AI processing failed, please try again.');
+        }
+
+        if (payload.status === 'AI_TRANSCRIBING') {
+          toast.info(payload.message || 'Transcribing audio...');
+        }
+
+        if (payload.status === 'AI_TRANSCRIBE_FAILED') {
+          toast.error(payload.message || 'Audio transcription failed. Please re-record or submit text/code.');
+        }
 
         if (payload.status === 'QUESTIONS_READY') {
           const sessionId = payload.sessionId || payload.session?.sessionId || payload.session?._id;

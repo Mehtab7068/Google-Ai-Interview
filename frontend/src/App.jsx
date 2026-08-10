@@ -22,7 +22,7 @@ const App = () => {
 
       <div className='relative z-10'>
         <Header />
-        <main className='container mx-auto px-4 py-6 lg:px-8 lg:py-10'>
+        <main className='mx-auto w-full max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10'>
           <Routes>
             <Route path='/login' element={<Login />} />
             <Route path='/register' element={<Register />} />

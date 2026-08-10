@@ -1,4 +1,4 @@
-import  { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useParams, Link } from 'react-router-dom';
 import { getSessionById } from '../features/sessions/sessionSlice';
@@ -92,7 +92,7 @@ function SessionReview() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-12 animate-in fade-in duration-700">
+        <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-12 animate-in fade-in duration-700">
 
             {/* --- Header --- */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-100 pb-6 sm:pb-10">
@@ -105,7 +105,7 @@ function SessionReview() {
             </div>
 
             {/* --- Summary Stats --- */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-4 sm:pb-0 no-scrollbar snap-x">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto pb-4 sm:pb-0 no-scrollbar snap-x">
                 {[
                     { label: 'Overall Result', value: `${overallScore}%`, color: 'teal' },
                     { label: 'Avg Technical', value: `${finalMetrics.avgTechnical}%`, color: 'slate' },

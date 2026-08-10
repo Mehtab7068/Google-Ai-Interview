@@ -1,8 +1,8 @@
-import {useState,useEffect} from 'react'
-import {useSelector,useDispatch} from 'react-redux'
-import {register,reset} from '../features/auth/authSlice'
-import { useNavigate,Link } from 'react-router-dom'
-import {toast} from 'react-toastify'
+import { useState, useEffect } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { register, reset } from '../features/auth/authSlice'
+import { useNavigate, Link } from 'react-router-dom'
+import { toast } from 'react-toastify'
 
 
 
@@ -15,28 +15,28 @@ const Register = () => {
     password2: ''
   })
 
-  const {name,email,password,password2} = formData
+  const { name, email, password, password2 } = formData
 
   const navigate = useNavigate()
   const dispatch = useDispatch()
 
-  const {user,isLoading,isError,isSuccess,message} = useSelector((state) => state.auth)
+  const { user, isLoading, isError, isSuccess, message } = useSelector((state) => state.auth)
 
   useEffect(() => {
-    if(isError){
+    if (isError) {
       toast.error(message)
       dispatch(reset())
     }
-    if(isSuccess ){
+    if (isSuccess) {
       toast.success('User Registered Successfully')
       navigate('/')
       dispatch(reset())
     }
-    if(user && !isSuccess){
+    if (user && !isSuccess) {
       navigate('/')
-      
+
     }
-  }, [user,isError,isSuccess,message,navigate,dispatch])
+  }, [user, isError, isSuccess, message, navigate, dispatch])
 
 
   const onChange = (e) => {
@@ -48,9 +48,9 @@ const Register = () => {
 
   const onSubmit = (e) => {
     e.preventDefault()
-    if(password !== password2){
+    if (password !== password2) {
       toast.error('Passwords do not match')
-    }else{
+    } else {
       const userData = {
         name,
         email,
@@ -60,17 +60,17 @@ const Register = () => {
     }
   }
 
-  if(isLoading){
-    return(
+  if (isLoading) {
+    return (
       <div className='flex justify-center items-center h-screen'>
-      <div className='animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500'></div>
+        <div className='animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500'></div>
       </div>
     )
   }
 
   return (
-    <div className='flex justify-center items-center min-h-[90vh] bg-gray-50 sm:px-6 py-10'>
-      <div className='w-full max-w-md bg-white p-6 sm:p-10 border border-gray-200 rounded-2xl shadow-xl' >
+    <div className='flex justify-center items-center min-h-screen bg-gray-50 px-4 py-10 sm:px-6'>
+      <div className='w-full max-w-lg bg-white p-6 sm:p-10 border border-gray-200 rounded-3xl shadow-xl' >
         <div className='text-center mb-8'>
           <h2 className='text-xs font-black uppercase tracking-[0.3em] text-teal-600 mb-2'>AI Interviewer</h2>
           <h1 className='text-3xl sm:text-4xl font-black text-gray-900 leading-tight'>Get <span className='text-teal-500'>Started</span></h1>

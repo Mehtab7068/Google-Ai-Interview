@@ -352,8 +352,14 @@ function InterviewRunner() {
 
   const currentDraft = drafts[currentQuestionIndex] || {};
 
+  const isTranscriptionFailed = currentQuestion?.questionType === 'oral'
+    && currentQuestion?.isEvaluated
+    && currentQuestion?.technicalScore === 0
+    && currentQuestion?.confidenceScore === 0
+    && /transcript|failed|empty/i.test(currentQuestion?.aiFeedback || '');
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 pb-40 text-slate-100">
+    <div className="max-w-6xl mx-auto px-4 py-8 pb-40 text-slate-100 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-6 shadow-2xl shadow-slate-950/40 mb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -390,7 +396,7 @@ function InterviewRunner() {
         <h2 className="mt-4 text-3xl font-black leading-snug text-white">{currentQuestion?.questionText}</h2>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/95 p-6 shadow-xl shadow-slate-950/40 min-h-[320px]">
           <div className="mb-6 flex items-center justify-between gap-4">
             <p className="text-xs font-bold uppercase tracking-[0.35em] text-slate-400">Verbal Answer</p>
@@ -418,6 +424,11 @@ function InterviewRunner() {
           ) : (
             <div className="space-y-3 text-center">
               <p className="text-lg font-bold text-emerald-300">Audio Captured ✅</p>
+              {isTranscriptionFailed && (
+                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-100">
+                  Transcription failed for this recording. Delete & re-record to retry.
+                </div>
+              )}
               {!isQuestionLocked && (
                 <button
                   onClick={() =>
@@ -435,7 +446,7 @@ function InterviewRunner() {
           )}
         </div>
 
-        <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/95 shadow-xl shadow-slate-950/40 overflow-hidden h-[420px]">
+        <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/95 shadow-xl shadow-slate-950/40 overflow-hidden min-h-[380px] sm:min-h-[420px]">
           <div className="flex items-center justify-between gap-4 border-b border-slate-800/70 bg-slate-950/90 px-4 py-3">
             <span className="text-xs font-bold uppercase tracking-[0.35em] text-slate-400">Code Editor</span>
             <select
@@ -468,6 +479,15 @@ function InterviewRunner() {
           />
         </div>
       </div>
+
+      {isTranscriptionFailed && (
+        <div className="mt-6 rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-5 shadow-xl shadow-rose-500/10">
+          <h3 className="text-base font-bold text-rose-300">⚠️ Audio transcription failed</h3>
+          <p className="mt-2 text-sm text-rose-200">
+            We could not transcribe your verbal answer. Try re-recording your answer or submit your response as text/code instead.
+          </p>
+        </div>
+      )}
 
       {currentQuestion?.isEvaluated && (
         <div className="mt-6 rounded-[2rem] border border-emerald-500/20 bg-emerald-500/5 p-6 shadow-xl shadow-emerald-500/10">

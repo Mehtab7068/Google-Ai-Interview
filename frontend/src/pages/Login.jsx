@@ -67,8 +67,8 @@ const Login = () => {
   }
 
   return (
-    <div className='flex justify-center items-center min-h-[90vh] bg-gray-50 sm:px-6 py-10'>
-      <div className='w-full max-w-md bg-white p-6 sm:p-10 border border-gray-200 rounded-2xl shadow-xl'>
+    <div className='flex justify-center items-center min-h-screen bg-gray-50 px-4 py-10 sm:px-6'>
+      <div className='w-full max-w-lg bg-white p-6 sm:p-10 border border-gray-200 rounded-3xl shadow-xl'>
         <div className='text-center mb-8'>
           <h2 className='text-xs font-black uppercase tracking-[0.3em] text-teal-600 mb-2'>AI Interviewer</h2>
           <h1 className='text-3xl sm:text-4xl font-black text-gray-900 leading-tight'>

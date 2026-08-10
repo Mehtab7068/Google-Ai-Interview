@@ -176,7 +176,7 @@ async def evaluate(request: EvaluationRequest):
             return EvaluationResponse(
                 technicalScore=0,
                 confidenceScore=0,
-                aiFeedback="The candidate's transcript was empty, therefore no evaluation could be made.",
+                aiFeedback="The audio transcription was empty or failed, so no evaluation could be made. Please re-record your answer or submit code/text instead.",
                 idealAnswer="A complete answer should address the core technical concepts of the question with clear explanation and relevant examples."
             )
 

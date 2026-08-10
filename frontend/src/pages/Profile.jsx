@@ -23,7 +23,7 @@ const ROLES = [
   "QA Automation Engineer",
   "Product Manager"
 ];
-const inputBase = 'w-full bg-slate-50 border-2 border-transparent rounded-xl sm:rounded-2xl p-3.5  sm-4 fornt-semibold text-slate-700 text-base transition-all focus:bg-white focus:border-teal-500 outline-none';
+const inputBase = 'w-full bg-slate-50 border-2 border-transparent rounded-xl sm:rounded-2xl p-3.5 sm:p-4 font-semibold text-slate-700 text-base transition-all focus:bg-white focus:border-teal-500 outline-none';
 const Profile = () => {
   const dispatch = useDispatch();
   const { user, isSuccess, isError, message, isProfileLoading } = useSelector((state) => state.auth);
@@ -65,7 +65,7 @@ const Profile = () => {
     dispatch(updateProfile(formData))
   }
   return (
-    <div className='max-w-4xl mx-auto px-4 py-6 sm:py-12 pb-24'>
+    <div className='min-h-screen max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-12 pb-24'>
       <div className='bg-white rounded-3xl shadow-xl sm:shadow-2xl p-6 sm:p-12 border border-slate-100'>
         <header className='mb-8'>
           <h1 className='text-2xl sm:text-3xl font-black text-slate-900'>Edit Profile</h1>
@@ -98,7 +98,7 @@ const Profile = () => {
             />
           </FormField>
 
-           <FormField label="Target Role">
+          <FormField label="Target Role">
             <div className='relative'>
               <select name="preferredRole" value={formData.preferredRole} onChange={handleChange} className={`${inputBase} appearance-none`}>
                 {
@@ -120,7 +120,7 @@ const Profile = () => {
               {
                 isProfileLoading ? <Loader /> : 'Save Changes'
               }
-              </button>
+            </button>
           </div>
         </form>
       </div>
