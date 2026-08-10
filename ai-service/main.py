@@ -126,88 +126,47 @@ async def generate_questions(request: QuestionRequest):
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
-    temp_audio_path = None
-    uploaded_file = None
     try:
-        # Step 1: Resolve extension and fallback safely
-        suffix = os.path.splitext(file.filename)[1].lower() if file.filename else ".webm"
-        if not suffix:
-            suffix = ".webm"
-
-        # Step 2: Read bytes and write to local temp file
         content = await file.read()
-        if not content or len(content) == 0:
-            raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
+        print(f"📥 Deployed FastAPI received: {file.filename}, Size: {len(content)} bytes, Content-Type: {file.content_type}")
+        
+        if not content or len(content) < 500:
+            print("⚠️ File content is missing or too small.")
+            return {"transcription": ""}
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            temp_audio_path = tmp.name
-            tmp.write(content)
-            tmp.flush()
+        # Step 1: Clean MIME type (Strip parameters like ;codecs=opus)
+        raw_mime = file.content_type or "audio/webm"
+        clean_mime = raw_mime.split(";")[0].strip().lower()
+
+        # Step 2: Map browser video/webm or octet-stream back to supported Gemini audio format
+        if clean_mime in ["video/webm", "application/octet-stream", ""]:
+            clean_mime = "audio/webm"
+
+        print(f"🔧 Sanitized MIME type for Gemini: '{clean_mime}'")
+
+        # Step 3: Direct inline audio transfer
+        audio_part = types.Part.from_bytes(
+            data=content,
+            mime_type=clean_mime,
+        )
 
         start = time.time()
-        
-        # Step 3: Explicitly map mime-types for common web audio recording formats
-        mime_map = {
-            ".webm": "audio/webm",
-            ".mp3": "audio/mp3",
-            ".wav": "audio/wav",
-            ".m4a": "audio/m4a",
-            ".ogg": "audio/ogg",
-            ".mp4": "audio/mp4",
-        }
-        mime_type = mime_map.get(suffix)
-        if not mime_type:
-            mime_type, _ = mimetypes.guess_type(temp_audio_path)
-        if not mime_type:
-            mime_type = "audio/webm"
-
-        # Step 4: Upload file to Gemini Cloud Storage
-        uploaded_file = await client.aio.files.upload(
-            file=temp_audio_path,
-            config=types.UploadFileConfig(mime_type=mime_type)
-        )
-        
-        # Step 5: Wait for audio file processing state to become ACTIVE
-        while uploaded_file.state.name == "PROCESSING":
-            await asyncio.sleep(0.5)
-            uploaded_file = await client.aio.files.get(name=uploaded_file.name)
-
-        if uploaded_file.state.name == "FAILED":
-            raise HTTPException(status_code=500, detail="Gemini failed to process the audio file format.")
-
-        # Step 6: Request transcription from Gemini Flash
         response = await client.aio.models.generate_content(
             model=GEMINI_MODEL_NAME,
             contents=[
-                uploaded_file,
+                audio_part,
                 "Transcribe the spoken audio accurately. Output ONLY the raw transcript text. Do not add commentary, meta-talk, or headers."
             ]
         )
         
-        print(f"⏱️ Gemini Transcription took {time.time() - start:.2f}s")
-        
         transcription_text = response.text.strip() if response.text else ""
+        print(f"⏱️ Gemini Transcription ({time.time() - start:.2f}s): '{transcription_text}'")
+
         return {"transcription": transcription_text}
 
     except Exception as e:
-        print(f"❌ Error in /transcribe: {str(e)}")
+        print(f"❌ Error in /transcribe on Render: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-        
-    finally:
-        # Step 7: Cleanup Cloud storage allocation
-        if uploaded_file:
-            try:
-                await client.aio.files.delete(name=uploaded_file.name)
-            except Exception as cloud_err:
-                print(f"⚠️ Failed to delete cloud file: {cloud_err}")
-
-        # Step 8: Cleanup local disk temp file
-        if temp_audio_path and os.path.exists(temp_audio_path):
-            try:
-                os.remove(temp_audio_path)
-            except Exception as disk_err:
-                print(f"⚠️ Failed to delete temp file: {disk_err}")
-
 
 @app.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(request: EvaluationRequest):
