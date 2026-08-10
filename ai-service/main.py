@@ -4,6 +4,7 @@ import json
 import tempfile
 import time
 import mimetypes
+import asyncio
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -129,34 +130,52 @@ async def transcribe_audio(file: UploadFile = File(...)):
     uploaded_file = None
     try:
         # Step 1: Resolve extension and fallback safely
-        suffix = os.path.splitext(file.filename)[1] if file.filename else ".webm"
+        suffix = os.path.splitext(file.filename)[1].lower() if file.filename else ".webm"
         if not suffix:
             suffix = ".webm"
 
-        # Step 2: Write bytes to temp file and explicitly CLOSE it so Google SDK can safely read it
+        # Step 2: Read bytes and write to local temp file
+        content = await file.read()
+        if not content or len(content) == 0:
+            raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             temp_audio_path = tmp.name
-            content = await file.read()
-            if not content:
-                raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
             tmp.write(content)
             tmp.flush()
 
         start = time.time()
         
-        # Step 3: Explicitly map mime-type for audio formats (.webm, .mp4, .wav, .mp3)
-        mime_type, _ = mimetypes.guess_type(temp_audio_path)
+        # Step 3: Explicitly map mime-types for common web audio recording formats
+        mime_map = {
+            ".webm": "audio/webm",
+            ".mp3": "audio/mp3",
+            ".wav": "audio/wav",
+            ".m4a": "audio/m4a",
+            ".ogg": "audio/ogg",
+            ".mp4": "audio/mp4",
+        }
+        mime_type = mime_map.get(suffix)
         if not mime_type:
-            mime_type = "audio/webm" if suffix == ".webm" else "audio/mp3"
+            mime_type, _ = mimetypes.guess_type(temp_audio_path)
+        if not mime_type:
+            mime_type = "audio/webm"
 
-        # Step 4: Upload file using correct SDK syntax and config
-        with open(temp_audio_path, 'rb') as audio_stream:
-            uploaded_file = await client.aio.files.upload(
-                file=audio_stream,
-                config=types.UploadFileConfig(mime_type=mime_type)
-            )
+        # Step 4: Upload file to Gemini Cloud Storage
+        uploaded_file = await client.aio.files.upload(
+            file=temp_audio_path,
+            config=types.UploadFileConfig(mime_type=mime_type)
+        )
+        
+        # Step 5: Wait for audio file processing state to become ACTIVE
+        while uploaded_file.state.name == "PROCESSING":
+            await asyncio.sleep(0.5)
+            uploaded_file = await client.aio.files.get(name=uploaded_file.name)
 
-        # Step 5: Request transcription from Gemini Flash
+        if uploaded_file.state.name == "FAILED":
+            raise HTTPException(status_code=500, detail="Gemini failed to process the audio file format.")
+
+        # Step 6: Request transcription from Gemini Flash
         response = await client.aio.models.generate_content(
             model=GEMINI_MODEL_NAME,
             contents=[
@@ -168,8 +187,6 @@ async def transcribe_audio(file: UploadFile = File(...)):
         print(f"⏱️ Gemini Transcription took {time.time() - start:.2f}s")
         
         transcription_text = response.text.strip() if response.text else ""
-        if not transcription_text:
-            raise HTTPException(status_code=500, detail="Transcription returned empty text from AI service.")
         return {"transcription": transcription_text}
 
     except Exception as e:
@@ -177,14 +194,14 @@ async def transcribe_audio(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
         
     finally:
-        # Step 6: Cleanup Cloud storage allocation
+        # Step 7: Cleanup Cloud storage allocation
         if uploaded_file:
             try:
                 await client.aio.files.delete(name=uploaded_file.name)
             except Exception as cloud_err:
                 print(f"⚠️ Failed to delete cloud file: {cloud_err}")
 
-        # Step 7: Cleanup local disk temp file
+        # Step 8: Cleanup local disk temp file
         if temp_audio_path and os.path.exists(temp_audio_path):
             try:
                 os.remove(temp_audio_path)
@@ -195,6 +212,15 @@ async def transcribe_audio(file: UploadFile = File(...)):
 @app.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(request: EvaluationRequest):
     try:
+        # Fallback check to avoid evaluating on empty string inputs
+        if request.question_type == "oral" and (not request.user_answer or not request.user_answer.strip()):
+            return EvaluationResponse(
+                technicalScore=0,
+                confidenceScore=0,
+                aiFeedback="The candidate's transcript was empty, therefore no evaluation could be made.",
+                idealAnswer="A complete answer should address the core technical concepts of the question with clear explanation and relevant examples."
+            )
+
         if request.question_type == "oral":
             assessment_instruction = (
                 "This is a conceptual oral question. Evaluate based entirely on the candidate's verbal statement logic. "
