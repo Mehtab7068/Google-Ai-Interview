@@ -322,10 +322,11 @@ function InterviewRunner() {
   // Handle loading and question generation states
   if (!activeSession || (questions.length === 0 && isGeneratingQuestions)) {
     return (
-      <div className="max-w-xl mx-auto my-20 p-8 rounded-3xl border border-slate-800 bg-slate-950 shadow-2xl text-center">
-        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full border-4 border-slate-700 border-t-teal-400 animate-spin text-teal-400" />
-        <h2 className="text-2xl font-black text-white">Preparing Your Interview</h2>
-        <p className="mt-3 text-sm text-slate-400">
+      <div className="max-w-xl mx-auto my-20 p-8 rounded-[2.5rem] border border-slate-850 bg-slate-900/60 backdrop-blur-xl shadow-2xl text-center relative overflow-hidden">
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-indigo-500/20 border-t-indigo-500 animate-spin text-indigo-400" />
+        <h2 className="text-2xl font-black text-white relative z-10">Preparing Your Interview</h2>
+        <p className="mt-3 text-sm text-slate-400 relative z-10 leading-relaxed">
           {message || "AI is generating tailored questions for your session. Please wait..."}
         </p>
       </div>
@@ -334,17 +335,17 @@ function InterviewRunner() {
 
   if (questions.length === 0) {
     return (
-      <div className="max-w-xl mx-auto my-20 p-8 rounded-3xl border border-rose-500/20 bg-slate-950 shadow-2xl text-center">
+      <div className="max-w-xl mx-auto my-20 p-8 rounded-[2.5rem] border border-rose-500/10 bg-slate-900/40 backdrop-blur-xl shadow-2xl text-center relative overflow-hidden">
         <h2 className="text-2xl font-black text-white">Unable to generate questions</h2>
-        <p className="mt-3 text-sm text-slate-400">
+        <p className="mt-3 text-sm text-slate-400 leading-relaxed">
           {message || 'The interview generator failed or took too long. Please try again later.'}
         </p>
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="mt-6 inline-flex items-center justify-center rounded-3xl bg-gradient-to-r from-rose-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-500/20 hover:brightness-105"
+          className="mt-6 inline-flex relative overflow-hidden group bg-gradient-to-r from-rose-500 to-pink-500 px-6 py-3 rounded-xl text-sm font-semibold text-white shadow-lg shadow-rose-500/10 hover:brightness-105"
         >
-          Back to Dashboard
+          <span className="relative z-10">Back to Dashboard</span>
         </button>
       </div>
     );
@@ -360,26 +361,26 @@ function InterviewRunner() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 pb-40 text-slate-100 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-800/80 bg-slate-950/90 p-6 shadow-2xl shadow-slate-950/40 mb-6">
+      <div className="flex flex-col gap-4 rounded-[2rem] border border-slate-850 bg-[#030712]/60 p-6 shadow-2xl mb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-white">{activeSession.role}</h1>
-            <p className="mt-2 text-sm text-slate-400">Answer one question at a time, record your verbal response, or submit code for evaluation.</p>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">{activeSession.role}</h1>
+            <p className="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">Answer one question at a time, record your verbal response, or submit code for evaluation.</p>
           </div>
-          <div className="inline-flex items-center gap-3 rounded-3xl bg-slate-900/90 px-5 py-3 text-sm text-slate-300 border border-slate-800 shadow-inner">
-            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
+          <div className="inline-flex items-center gap-3 rounded-2xl bg-slate-900/60 px-4 py-2.5 text-xs text-slate-300 border border-slate-800 shadow-inner">
+            <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
             Question {currentQuestionIndex + 1} of {questions.length}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {questions.map((q, i) => (
             <button
               key={i}
               type="button"
               onClick={() => handleNavigation(i)}
-              className={`h-3.5 w-3.5 rounded-full transition ${i === currentQuestionIndex
-                ? 'bg-teal-400 scale-125 shadow-lg shadow-teal-500/30'
+              className={`h-3 w-3 rounded-full transition ${i === currentQuestionIndex
+                ? 'bg-indigo-500 scale-125 shadow-lg shadow-indigo-500/30'
                 : q.isEvaluated
                   ? 'bg-emerald-500'
                   : (q.isSubmitted || submittedLocal[i])
@@ -391,69 +392,77 @@ function InterviewRunner() {
         </div>
       </div>
 
-      <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-8 rounded-[2rem] shadow-2xl border border-slate-800 mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-400">Current Question</p>
-        <h2 className="mt-4 text-3xl font-black leading-snug text-white">{currentQuestion?.questionText}</h2>
+      <div className="bg-gradient-to-br from-slate-900 via-[#030712] to-slate-900 p-8 rounded-[2rem] shadow-2xl border border-slate-850 mb-6">
+        <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-indigo-400">Current Question</p>
+        <h2 className="mt-4 text-xl sm:text-2xl font-black leading-snug text-white">{currentQuestion?.questionText}</h2>
       </div>
 
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/95 p-6 shadow-xl shadow-slate-950/40 min-h-[320px]">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <p className="text-xs font-bold uppercase tracking-[0.35em] text-slate-400">Verbal Answer</p>
-            <span className="rounded-full bg-slate-800/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">Audio</span>
+        <div className="rounded-[2rem] border border-slate-850 bg-slate-900/40 p-6 shadow-xl min-h-[320px] flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-4 border-b border-slate-850 pb-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-slate-400">Verbal Answer</p>
+            <span className="rounded-full bg-slate-950/60 border border-slate-850 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Audio</span>
           </div>
 
-          {!isRecording && !currentDraft.audioBlob ? (
-            <button
-              onClick={startRecording}
-              disabled={isQuestionLocked}
-              className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 text-4xl text-white shadow-2xl shadow-cyan-500/20 transition-transform duration-300 hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              🎤
-            </button>
-          ) : isRecording ? (
-            <div className="text-center">
+          <div className="py-8 flex flex-col items-center justify-center">
+            {!isRecording && !currentDraft.audioBlob ? (
               <button
-                onClick={stopRecording}
-                className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-rose-500 text-4xl text-white shadow-2xl shadow-rose-500/25 animate-pulse"
+                onClick={startRecording}
+                disabled={isQuestionLocked}
+                className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-3xl text-white shadow-lg shadow-indigo-500/10 transition duration-300 hover:scale-105 hover:shadow-indigo-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                ⏹
+                🎤
               </button>
-              <p className="mt-4 text-sm font-semibold text-rose-300">Recording {recordingTime}s</p>
-            </div>
-          ) : (
-            <div className="space-y-3 text-center">
-              <p className="text-lg font-bold text-emerald-300">Audio Captured ✅</p>
-              {isTranscriptionFailed && (
-                <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-100">
-                  Transcription failed for this recording. Delete & re-record to retry.
-                </div>
-              )}
-              {!isQuestionLocked && (
+            ) : isRecording ? (
+              <div className="text-center">
                 <button
-                  onClick={() =>
-                    setDrafts((prev) => ({
-                      ...prev,
-                      [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: null, audioFile: null }
-                    }))
-                  }
-                  className="text-sm font-semibold text-slate-300 underline decoration-slate-600 hover:text-white"
+                  onClick={stopRecording}
+                  className="flex h-20 w-20 items-center justify-center rounded-full bg-rose-500 text-3xl text-white shadow-lg shadow-rose-500/20 animate-pulse"
                 >
-                  Delete & Re-record
+                  ⏹
                 </button>
-              )}
-            </div>
-          )}
+                <p className="mt-4 text-xs font-bold text-rose-400 uppercase tracking-widest">Recording {recordingTime}s</p>
+              </div>
+            ) : (
+              <div className="space-y-4 text-center">
+                <p className="text-base font-black text-emerald-400 flex items-center justify-center gap-2">
+                  <span className="inline-flex items-center justify-center h-6 h-6 w-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs">✓</span>
+                  Audio Answer Captured
+                </p>
+                {isTranscriptionFailed && (
+                  <div className="rounded-2xl border border-rose-500/10 bg-rose-500/5 px-4 py-3 text-xs text-rose-300">
+                    Transcription failed for this recording. Delete & re-record to retry.
+                  </div>
+                )}
+                {!isQuestionLocked && (
+                  <button
+                    onClick={() =>
+                      setDrafts((prev) => ({
+                        ...prev,
+                        [currentQuestionIndex]: { ...prev[currentQuestionIndex], audioBlob: null, audioFile: null }
+                      }))
+                    }
+                    className="text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white underline transition"
+                  >
+                    Delete & Re-record
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="text-center text-[10px] text-slate-500 font-medium leading-relaxed">
+            Ensure your microphone is enabled and you speak clearly for evaluation.
+          </div>
         </div>
 
-        <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/95 shadow-xl shadow-slate-950/40 overflow-hidden min-h-[380px] sm:min-h-[420px]">
-          <div className="flex items-center justify-between gap-4 border-b border-slate-800/70 bg-slate-950/90 px-4 py-3">
-            <span className="text-xs font-bold uppercase tracking-[0.35em] text-slate-400">Code Editor</span>
+        <div className="rounded-[2rem] border border-slate-850 bg-slate-900/40 shadow-xl overflow-hidden min-h-[380px] sm:min-h-[420px] flex flex-col">
+          <div className="flex items-center justify-between gap-4 border-b border-slate-850 bg-slate-950/60 px-4 py-3.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-slate-400">Code Editor</span>
             <select
               value={selectedLanguage}
               onChange={(e) => setSelectedLanguage(e.target.value)}
               disabled={isQuestionLocked}
-              className="text-xs rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-slate-200 outline-none disabled:cursor-not-allowed disabled:bg-slate-800"
+              className="text-xs rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-slate-200 outline-none cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-850"
             >
               {SUPPORTED_LANGUAGES.map((l) => (
                 <option key={l.value} value={l.value} className="bg-slate-950 text-white">
@@ -462,51 +471,56 @@ function InterviewRunner() {
               ))}
             </select>
           </div>
-          <MonacoEditor
-            height="100%"
-            language={selectedLanguage}
-            theme="vs-dark"
-            value={currentDraft.code || ''}
-            onChange={updateDraftCode}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              scrollBeyondLastLine: false,
-              readOnly: isQuestionLocked,
-              domReadOnly: isQuestionLocked,
-              wordWrap: 'on',
-            }}
-          />
+          <div className="flex-grow">
+            <MonacoEditor
+              height="100%"
+              language={selectedLanguage}
+              theme="vs-dark"
+              value={currentDraft.code || ''}
+              onChange={updateDraftCode}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                scrollBeyondLastLine: false,
+                readOnly: isQuestionLocked,
+                domReadOnly: isQuestionLocked,
+                wordWrap: 'on',
+              }}
+            />
+          </div>
         </div>
       </div>
 
       {isTranscriptionFailed && (
-        <div className="mt-6 rounded-[2rem] border border-rose-500/20 bg-rose-500/5 p-5 shadow-xl shadow-rose-500/10">
-          <h3 className="text-base font-bold text-rose-300">⚠️ Audio transcription failed</h3>
-          <p className="mt-2 text-sm text-rose-200">
+        <div className="mt-6 rounded-[2rem] border border-rose-500/10 bg-rose-500/5 p-5 shadow-xl">
+          <h3 className="text-sm font-bold text-rose-400">⚠️ Audio transcription failed</h3>
+          <p className="mt-2 text-xs text-rose-300 leading-relaxed">
             We could not transcribe your verbal answer. Try re-recording your answer or submit your response as text/code instead.
           </p>
         </div>
       )}
 
       {currentQuestion?.isEvaluated && (
-        <div className="mt-6 rounded-[2rem] border border-emerald-500/20 bg-emerald-500/5 p-6 shadow-xl shadow-emerald-500/10">
-          <h3 className="text-lg font-bold text-emerald-300">💡 AI Feedback</h3>
-          <p className="mt-3 text-slate-200 leading-relaxed">{currentQuestion.aiFeedback}</p>
+        <div className="mt-6 rounded-[2rem] border border-emerald-500/15 bg-emerald-500/5 p-6 shadow-xl">
+          <h3 className="text-base font-bold text-emerald-400 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            AI Feedback
+          </h3>
+          <p className="mt-3 text-sm text-slate-300 leading-relaxed italic">"{currentQuestion.aiFeedback}"</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <span className="rounded-3xl bg-slate-900/80 px-4 py-2 text-sm font-semibold text-white">Technical Score: {currentQuestion.technicalScore}</span>
-            <span className="rounded-3xl bg-slate-900/80 px-4 py-2 text-sm font-semibold text-white">Confidence: {currentQuestion.confidenceScore}</span>
+            <span className="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-200">Technical Score: {currentQuestion.technicalScore}%</span>
+            <span className="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-200">Confidence: {currentQuestion.confidenceScore}%</span>
           </div>
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800/90 bg-slate-950/95 px-4 py-4 backdrop-blur-xl shadow-2xl shadow-slate-950/40">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-900 bg-[#030712]/90 px-4 py-4 backdrop-blur-xl shadow-2xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center justify-between gap-4">
             <button
               onClick={() => handleNavigation(currentQuestionIndex - 1)}
               disabled={currentQuestionIndex === 0}
-              className="rounded-3xl border border-slate-700/80 bg-slate-900 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-slate-300 transition hover:border-teal-400 hover:text-white disabled:opacity-40"
+              className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:border-indigo-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
             >
               ← Previous
             </button>
@@ -514,7 +528,7 @@ function InterviewRunner() {
 
           <div className="flex flex-col items-center gap-2 md:flex-row">
             {isProcessing && message && (
-              <div className="rounded-full bg-slate-900/90 px-4 py-2 text-xs font-mono uppercase tracking-[0.2em] text-teal-300 shadow-inner">
+              <div className="rounded-full bg-slate-900/60 border border-slate-800 px-4 py-2 text-[10px] font-mono uppercase tracking-[0.2em] text-indigo-400 shadow-inner">
                 🤖 {message}...
               </div>
             )}
@@ -522,30 +536,30 @@ function InterviewRunner() {
             <button
               onClick={handleSubmitAnswer}
               disabled={isQuestionLocked}
-              className={`rounded-3xl px-8 py-3 text-sm font-black uppercase tracking-[0.2em] text-white shadow-2xl transition ${isProcessing
-                ? 'bg-slate-700 cursor-wait'
+              className={`rounded-xl px-8 py-3.5 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg transition duration-300 ${isProcessing
+                ? 'bg-slate-800 cursor-wait'
                 : currentQuestion?.isEvaluated
-                  ? 'bg-emerald-500 hover:brightness-110'
+                  ? 'bg-emerald-600 hover:brightness-115'
                   : isQuestionLocked
-                    ? 'bg-slate-700'
-                    : 'bg-gradient-to-r from-teal-400 to-cyan-400 hover:scale-[1.01]'
+                    ? 'bg-slate-800 text-slate-500'
+                    : 'bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 hover:shadow-indigo-500/20 active:scale-98'
                 }`}
             >
               {isProcessing ? "Analyzing..." : currentQuestion?.isEvaluated ? "Answer Submitted" : isQuestionLocked ? "Submitted" : "Submit Answer"}
             </button>
           </div>
 
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="flex gap-3 items-center">
             <button
               onClick={() => handleNavigation(currentQuestionIndex + 1)}
               disabled={questions.length === 0 || currentQuestionIndex === questions.length - 1}
-              className="rounded-3xl border border-slate-700/80 bg-slate-900 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-slate-300 transition hover:border-teal-400 hover:text-white disabled:opacity-40"
+              className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:border-indigo-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Next →
             </button>
             <button
               onClick={handleFinishInterview}
-              className="rounded-3xl border border-teal-400 bg-teal-500/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-teal-200 transition hover:bg-teal-500/20"
+              className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-5 py-3 text-xs font-bold uppercase tracking-[0.2em] text-indigo-300 transition hover:bg-indigo-500/20"
             >
               Finish Interview
             </button>

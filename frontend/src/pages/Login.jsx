@@ -60,47 +60,57 @@ const Login = () => {
 
   if (isLoading) {
     return (
-      <div className='flex justify-center items-center h-screen'>
-        <div className='animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500'></div>
+      <div className='flex flex-col justify-center items-center min-h-[70vh]'>
+        <div className='relative flex items-center justify-center'>
+          <div className='animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500'></div>
+          <div className='absolute h-10 w-10 rounded-full bg-indigo-500/10 blur-sm'></div>
+        </div>
+        <p className='text-sm text-slate-400 mt-4 tracking-widest uppercase animate-pulse'>Authenticating...</p>
       </div>
     )
   }
 
   return (
-    <div className='flex justify-center items-center min-h-screen bg-gray-50 px-4 py-10 sm:px-6'>
-      <div className='w-full max-w-lg bg-white p-6 sm:p-10 border border-gray-200 rounded-3xl shadow-xl'>
-        <div className='text-center mb-8'>
-          <h2 className='text-xs font-black uppercase tracking-[0.3em] text-teal-600 mb-2'>AI Interviewer</h2>
-          <h1 className='text-3xl sm:text-4xl font-black text-gray-900 leading-tight'>
-            Welcome <span className='text-teal-500'>Back</span>
+    <div className='flex justify-center items-center min-h-[80vh] px-4 py-8 sm:px-6 lg:px-8'>
+      <div className='w-full max-w-lg bg-slate-900/60 backdrop-blur-xl p-8 sm:p-12 border border-slate-850 rounded-[2.5rem] shadow-2xl relative overflow-hidden group hover:border-slate-800 transition-all duration-550'>
+        {/* Decorative corner glows */}
+        <div className='absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/15 transition-all duration-500' />
+        <div className='absolute -bottom-24 -left-24 w-48 h-48 bg-violet-500/5 rounded-full blur-3xl group-hover:bg-violet-500/10 transition-all duration-500' />
+
+        <div className='text-center mb-8 relative z-10'>
+          <div className='inline-flex px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-[0.25em] rounded-full mb-3'>
+            AI Interviewer
+          </div>
+          <h1 className='text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight'>
+            Welcome <span className='bg-gradient-to-r from-indigo-400 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent'>Back</span>
           </h1>
-          <p className='text-gray-500 mt-3 text-sm sm:text-base px-2'>
-            Sign In to sharpen your technical skills.
+          <p className='text-slate-400 mt-3 text-sm sm:text-base'>
+            Sign in to sharpen your technical skills.
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className='grid grid-cols-1 gap-4'>
-          <div className='space-y-1'>
-            <label className='text-[10px] font-bold uppercase text-gray-400 ml-1'>Email</label>
+        <form onSubmit={onSubmit} className='space-y-5 relative z-10'>
+          <div className='space-y-1.5'>
+            <label className='text-xs font-bold uppercase tracking-wider text-slate-400 ml-1'>Email</label>
             <input
               type="email"
               name="email"
               value={email}
-              className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all'
-              placeholder='mehtab@gmail.com'
+              className='w-full px-4 py-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-white placeholder-slate-600 transition-all duration-300'
+              placeholder='name@example.com'
               onChange={onChange}
               required
             />
           </div>
 
-          <div className='space-y-1'>
-            <label className='text-[10px] font-bold uppercase text-gray-400 ml-1'>Password</label>
+          <div className='space-y-1.5'>
+            <label className='text-xs font-bold uppercase tracking-wider text-slate-400 ml-1'>Password</label>
             <input
               type="password"
               name="password"
               value={password}
-              className='w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all'
-              placeholder='********'
+              className='w-full px-4 py-3.5 bg-slate-950/60 border border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-white placeholder-slate-600 transition-all duration-300'
+              placeholder='••••••••'
               onChange={onChange}
               required
             />
@@ -108,37 +118,38 @@ const Login = () => {
 
           <button
             type="submit"
-            className='w-full bg-teal-600 text-white p-3.5 rounded-xl font-bold hover:bg-teal-700 transition-all shadow-lg shadow-teal-100 mt-4 active:scale-[0.98]'
+            className='w-full relative overflow-hidden group/btn bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 text-white py-4 rounded-2xl font-bold transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/25 mt-4 active:scale-[0.98]'
           >
-            Login to Account
+            <span className='relative z-10'>Login to Account</span>
+            <div className='absolute inset-0 -translate-x-full group-hover/btn:translate-x-0 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 transition-transform duration-500' />
           </button>
         </form>
 
-        <div className="my-8 flex items-center">
-          <div className="flex-grow border-t border-gray-300"></div>
-          <span className="mx-4 text-gray-400 text-[10px] font-black tracking-widest uppercase">
+        <div className="my-8 flex items-center relative z-10">
+          <div className="flex-grow border-t border-slate-800"></div>
+          <span className="mx-4 text-slate-500 text-[10px] font-bold tracking-widest uppercase">
             Social Login
           </span>
-          <div className="flex-grow border-t border-gray-300"></div>
+          <div className="flex-grow border-t border-slate-800"></div>
         </div>
 
-        <div className="w-full flex items-center justify-center">
+        <div className="w-full flex items-center justify-center relative z-10 bg-slate-950/40 p-2.5 border border-slate-800/80 rounded-2xl">
           <GoogleOAuthProvider clientId={googleClientId || ''}>
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={() => toast.error('Google login failed')}
-              theme="outline"
+              theme="filled_dark"
               size="large"
               width="100%"
               text="continue_with"
-              shape="circle"
+              shape="rectangular"
             />
           </GoogleOAuthProvider>
         </div>
 
-        <p className="mt-8 text-center text-sm text-gray-500">
+        <p className="mt-8 text-center text-sm text-slate-400 relative z-10">
           New here?{' '}
-          <Link to="/register" className="text-teal-600 font-bold hover:underline">
+          <Link to="/register" className="text-indigo-400 font-bold hover:text-indigo-300 transition hover:underline">
             Create an account
           </Link>
         </p>
