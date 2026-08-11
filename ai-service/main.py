@@ -16,7 +16,7 @@ from google.genai import types
 load_dotenv()
 
 AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", 8000))
-GEMINI_MODEL_NAME = "Gemini 3 Flash preview"
+GEMINI_MODEL_NAME = "gemini-2.5-flash"
 
 app = FastAPI(title="AI Interviewer Cloud Microservice", version="2.0")
 
@@ -130,8 +130,8 @@ async def transcribe_audio(file: UploadFile = File(...)):
         content = await file.read()
         print(f"📥 Deployed FastAPI received: {file.filename}, Size: {len(content)} bytes, Content-Type: {file.content_type}")
         
-        if not content or len(content) < 500:
-            print("⚠️ File content is missing or too small.")
+                if not content or len(content) < 100:
+            print(f"⚠️ File content is missing or too small ({len(content) if content else 0} bytes).")
             return {"transcription": ""}
 
         # Step 1: Clean MIME type (Strip parameters like ;codecs=opus)
