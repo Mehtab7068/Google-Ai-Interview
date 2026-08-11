@@ -94,7 +94,7 @@ const Register = () => {
               name="name"
               value={name}
               className='w-full px-4 py-3 bg-slate-950/60 border border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none text-white placeholder-slate-600 transition-all duration-300'
-              placeholder='Siddhant Saxena'
+              placeholder='Mehtab Ali'
               onChange={onChange}
               required
             />
