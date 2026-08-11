@@ -1,10 +1,7 @@
 import uvicorn
 import os
 import json
-import tempfile
 import time
-import mimetypes
-import asyncio
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -130,7 +127,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
         content = await file.read()
         print(f"📥 Deployed FastAPI received: {file.filename}, Size: {len(content)} bytes, Content-Type: {file.content_type}")
         
-                if not content or len(content) < 100:
+        if not content or len(content) < 100:
             print(f"⚠️ File content is missing or too small ({len(content) if content else 0} bytes).")
             return {"transcription": ""}
 
@@ -168,10 +165,10 @@ async def transcribe_audio(file: UploadFile = File(...)):
         print(f"❌ Error in /transcribe on Render: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(request: EvaluationRequest):
     try:
-        # Fallback check to avoid evaluating on empty string inputs
         if request.question_type == "oral" and (not request.user_answer or not request.user_answer.strip()):
             return EvaluationResponse(
                 technicalScore=0,
