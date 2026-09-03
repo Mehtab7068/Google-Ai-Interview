@@ -3,3 +3,4 @@ Lib
 Scripts
 node_modules
 .env
+temp_test_transcribe.py
