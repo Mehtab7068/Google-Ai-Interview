@@ -19,7 +19,7 @@ from google.genai import types
 load_dotenv()
 
 AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", 8000))
-GEMINI_MODEL_NAME = "gemini-3.5-flash"
+GEMINI_MODEL_NAME = "gemini-3.1-flash-live-preview"
 
 app = FastAPI(title="AI Interviewer Cloud Microservice", version="2.0")
 
