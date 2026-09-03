@@ -96,14 +96,33 @@ async def generate_questions(request: QuestionRequest):
 
         user_prompt = f"Generate exactly {request.count} unique interview questions for a {request.level} level {request.role} role."
 
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL_NAME,
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.4,
-            )
-        )
+        # Implement retry logic for rate-limit (429) and service unavailable (503) responses from Gemini
+        max_retries = 3
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=GEMINI_MODEL_NAME,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.4,
+                    )
+                )
+                break  # success
+            except Exception as e:
+                # Detect rate-limit errors (429) or service unavailable (503) via status code or message
+                err_msg = str(e)
+                if "429" in err_msg or "Rate limit" in err_msg or "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
+                    wait_seconds = 2 ** attempt
+                    print(f"⚠️ Gemini temporarily unavailable during question generation (attempt {attempt + 1}/{max_retries}), waiting {wait_seconds}s before retry. Error: {err_msg[:100]}")
+                    await asyncio.sleep(wait_seconds)
+                    continue
+                # Re-raise other exceptions
+                raise
+        if response is None:
+            print("❌ Failed to generate questions after all retries.")
+            raise HTTPException(status_code=500, detail="Failed to generate questions after retries.")
 
         raw_text = response.text.strip() if response.text else ""
         questions = [q.strip() for q in raw_text.split('\n') if q.strip()]
@@ -134,6 +153,10 @@ async def transcribe_audio(file: UploadFile = File(...)):
         if not content:
             print("⚠️ No file content received.")
             return {"transcription": ""}
+        
+        # Warn if audio is very small (likely silence or corrupted)
+        if len(content) < 500:
+            print(f"⚠️ Audio file is very small ({len(content)} bytes), may be silence or corrupted.")
 
         # Step 1: Clean MIME type (Strip parameters like ;codecs=opus)
         raw_mime = file.content_type or "audio/webm"
@@ -156,7 +179,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
         )
 
         start = time.time()
-        # Implement simple retry logic for rate‑limit (429) responses from Gemini
+        # Implement retry logic for rate‑limit (429) and service unavailable (503) responses from Gemini
         max_retries = 3
         response = None
         for attempt in range(max_retries):
@@ -170,17 +193,18 @@ async def transcribe_audio(file: UploadFile = File(...)):
                 )
                 break  # success
             except Exception as e:
-                # Detect rate‑limit errors (429) via status code or message
+                # Detect rate‑limit errors (429) or service unavailable (503) via status code or message
                 err_msg = str(e)
-                if "429" in err_msg or "Rate limit" in err_msg:
+                if "429" in err_msg or "Rate limit" in err_msg or "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
                     wait_seconds = 2 ** attempt
-                    print(f"⚠️ Gemini rate limited (attempt {attempt + 1}/{max_retries}), waiting {wait_seconds}s before retry.")
+                    print(f"⚠️ Gemini temporarily unavailable (attempt {attempt + 1}/{max_retries}), waiting {wait_seconds}s before retry. Error: {err_msg[:100]}")
                     await asyncio.sleep(wait_seconds)
                     continue
                 # Re‑raise other exceptions
                 raise
         if response is None:
-            raise HTTPException(status_code=500, detail="Failed to get transcription after retries.")
+            print("❌ Failed to get transcription after all retries.")
+            return {"transcription": ""}
         
         transcription_text = response.text.strip() if response.text else ""
         print(f"⏱️ Gemini Transcription ({time.time() - start:.2f}s): '{transcription_text}'")
@@ -235,16 +259,35 @@ async def evaluate(request: EvaluationRequest):
             f"Candidate Code Submission: {request.user_code or 'No code provided'}\n"
         )
         
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL_NAME,
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.1,
-                response_mime_type="application/json",
-                response_schema=EvaluationResponse,
-            )
-        )
+        # Implement retry logic for rate-limit (429) and service unavailable (503) responses from Gemini
+        max_retries = 3
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=GEMINI_MODEL_NAME,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.1,
+                        response_mime_type="application/json",
+                        response_schema=EvaluationResponse,
+                    )
+                )
+                break  # success
+            except Exception as e:
+                # Detect rate-limit errors (429) or service unavailable (503) via status code or message
+                err_msg = str(e)
+                if "429" in err_msg or "Rate limit" in err_msg or "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
+                    wait_seconds = 2 ** attempt
+                    print(f"⚠️ Gemini temporarily unavailable during evaluation (attempt {attempt + 1}/{max_retries}), waiting {wait_seconds}s before retry. Error: {err_msg[:100]}")
+                    await asyncio.sleep(wait_seconds)
+                    continue
+                # Re-raise other exceptions
+                raise
+        if response is None:
+            print("❌ Failed to get evaluation after all retries.")
+            raise HTTPException(status_code=500, detail="Failed to get evaluation after retries.")
         
         response_text = response.text.strip() if response.text else ""
         evaluation_data = json.loads(response_text)
