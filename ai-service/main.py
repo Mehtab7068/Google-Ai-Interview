@@ -1,7 +1,10 @@
 import uvicorn
 import os
 import json
+import tempfile
 import time
+import mimetypes
+import asyncio
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -126,9 +129,10 @@ async def transcribe_audio(file: UploadFile = File(...)):
     try:
         content = await file.read()
         print(f"📥 Deployed FastAPI received: {file.filename}, Size: {len(content)} bytes, Content-Type: {file.content_type}")
-        
+
+        # Validate content size early to avoid unnecessary Gemini calls
         if not content or len(content) < 100:
-            print(f"⚠️ File content is missing or too small ({len(content) if content else 0} bytes).")
+            print(f"⚠️ File content is missing or too small ({len(content) if content else 0)} bytes).")
             return {"transcription": ""}
 
         # Step 1: Clean MIME type (Strip parameters like ;codecs=opus)
@@ -148,13 +152,31 @@ async def transcribe_audio(file: UploadFile = File(...)):
         )
 
         start = time.time()
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL_NAME,
-            contents=[
-                audio_part,
-                "Transcribe the spoken audio accurately. Output ONLY the raw transcript text. Do not add commentary, meta-talk, or headers."
-            ]
-        )
+        # Implement simple retry logic for rate‑limit (429) responses from Gemini
+        max_retries = 3
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=GEMINI_MODEL_NAME,
+                    contents=[
+                        audio_part,
+                        "Transcribe the spoken audio accurately. Output ONLY the raw transcript text. Do not add commentary, meta-talk, or headers."
+                    ]
+                )
+                break  # success
+            except Exception as e:
+                # Detect rate‑limit errors (429) via status code or message
+                err_msg = str(e)
+                if "429" in err_msg or "Rate limit" in err_msg:
+                    wait_seconds = 2 ** attempt
+                    print(f"⚠️ Gemini rate limited (attempt {attempt + 1}/{max_retries}), waiting {wait_seconds}s before retry.")
+                    await asyncio.sleep(wait_seconds)
+                    continue
+                # Re‑raise other exceptions
+                raise
+        if response is None:
+            raise HTTPException(status_code=500, detail="Failed to get transcription after retries.")
         
         transcription_text = response.text.strip() if response.text else ""
         print(f"⏱️ Gemini Transcription ({time.time() - start:.2f}s): '{transcription_text}'")
@@ -165,10 +187,10 @@ async def transcribe_audio(file: UploadFile = File(...)):
         print(f"❌ Error in /transcribe on Render: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(request: EvaluationRequest):
     try:
+        # Fallback check to avoid evaluating on empty string inputs
         if request.question_type == "oral" and (not request.user_answer or not request.user_answer.strip()):
             return EvaluationResponse(
                 technicalScore=0,
