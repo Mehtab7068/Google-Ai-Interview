@@ -5,6 +5,9 @@ import tempfile
 import time
 import mimetypes
 import asyncio
+import subprocess
+import io
+import ffmpeg
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -145,11 +148,20 @@ async def generate_questions(request: QuestionRequest):
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
+    """
+    Transcribe audio using Gemini with server-side audio conversion.
+    
+    This approach uses pydub/ffmpeg to convert any input audio format to WAV
+    before sending to Gemini, eliminating MIME type compatibility issues.
+    """
+    temp_input_path = None
+    temp_wav_path = None
+    
     try:
         content = await file.read()
-        print(f"📥 Deployed FastAPI received: {file.filename}, Size: {len(content)} bytes, Content-Type: {file.content_type}")
+        print(f"📥 Received: {file.filename}, Size: {len(content)} bytes, Content-Type: {file.content_type}")
 
-        # Validate that we received some content; avoid rejecting small but valid audio clips
+        # Validate that we received some content
         if not content:
             print("⚠️ No file content received.")
             return {"transcription": ""}
@@ -158,111 +170,157 @@ async def transcribe_audio(file: UploadFile = File(...)):
         if len(content) < 500:
             print(f"⚠️ Audio file is very small ({len(content)} bytes), may be silence or corrupted.")
 
-        # Step 1: Get the raw MIME type from the uploaded file
-        raw_mime = (file.content_type or "audio/webm").strip().lower()
-        print(f"📥 Raw MIME type from upload: '{raw_mime}'")
-
-        # Step 2: Map browser MIME types to Gemini-supported formats
-        # Gemini supports: audio/wav, audio/mp3, audio/mpeg, audio/aiff, audio/aac, audio/ogg, audio/flac, audio/webm (with opus)
-        clean_mime = raw_mime
+        # Step 1: Save uploaded content to a temporary file
+        # Use the original file extension if available, otherwise default to .webm
+        original_ext = os.path.splitext(file.filename or "")[1].lower()
+        if not original_ext or original_ext not in ['.webm', '.mp4', '.wav', '.ogg', '.mp3', '.m4a', '.aac', '.flac']:
+            original_ext = '.webm'  # Default for MediaRecorder
         
-        # Handle video/webm (browser sometimes sends this for audio recordings)
-        if clean_mime == "video/webm":
-            clean_mime = "audio/webm;codecs=opus"
-        # Handle generic octet-stream - try to infer from filename
-        elif clean_mime in ["application/octet-stream", ""]:
-            # Default to webm with opus since that's what MediaRecorder typically produces
-            clean_mime = "audio/webm;codecs=opus"
-        # For audio/webm without explicit codec, add opus codec (most common for MediaRecorder)
-        elif clean_mime == "audio/webm":
-            clean_mime = "audio/webm;codecs=opus"
-        # Keep other supported formats as-is
-        elif clean_mime in ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg", "audio/aac", "audio/mp4", "audio/flac", "audio/aiff"]:
-            pass  # Already supported by Gemini
-
-        print(f"🔧 Sanitized MIME type for Gemini: '{clean_mime}'")
-
-        # Step 3: Direct inline audio transfer with fallback MIME types
-        # Try the primary MIME type first, then fall back to alternatives
-        mime_types_to_try = [clean_mime]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=original_ext) as tmp_in:
+            tmp_in.write(content)
+            temp_input_path = tmp_in.name
         
-        # Add fallback MIME types for webm/opus
-        if "webm" in clean_mime:
-            mime_types_to_try.extend([
-                "audio/webm",
-                "audio/ogg;codecs=opus",
-                "audio/ogg",
-            ])
-        # Add generic fallbacks
-        mime_types_to_try.extend(["audio/wav", "audio/mpeg"])
-        
-        # Remove duplicates while preserving order
-        seen = set()
-        mime_types_to_try = [m for m in mime_types_to_try if not (m in seen or seen.add(m))]
-        
-        print(f"🔄 Will try MIME types in order: {mime_types_to_try}")
+        print(f"💾 Saved input to temporary file: {temp_input_path}")
 
+        # Step 2: Convert to WAV using ffmpeg-python directly
+        # WAV is universally supported by Gemini and avoids all MIME type issues
+        temp_wav_path = temp_input_path + '.wav'
+        
+        try:
+            print(f"🔄 Converting audio to WAV format using ffmpeg...")
+            # Use ffmpeg to convert to mono, 16kHz WAV (optimal for speech recognition)
+            (
+                ffmpeg
+                .input(temp_input_path)
+                .output(temp_wav_path, ac=1, ar=16000, format='wav')
+                .overwrite_output()
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            print(f"✅ Converted to WAV: {temp_wav_path} ({os.path.getsize(temp_wav_path)} bytes)")
+            
+        except Exception as conv_error:
+            print(f"❌ Audio conversion failed: {conv_error}")
+            # Fallback: try sending original content with best-guess MIME type
+            return await _transcribe_with_fallback(content, file.content_type)
+
+        # Step 3: Read the converted WAV file and send to Gemini
+        with open(temp_wav_path, 'rb') as f:
+            wav_content = f.read()
+        
+        print(f"📤 Sending WAV audio to Gemini ({len(wav_content)} bytes)")
+        
         start = time.time()
-        # Implement retry logic for rate‑limit (429) and service unavailable (503) responses from Gemini
+        # Implement retry logic for rate-limit (429) and service unavailable (503)
         max_retries = 3
         response = None
         transcription_text = ""
         
-        for mime_type in mime_types_to_try:
-            print(f"🔄 Trying transcription with MIME type: '{mime_type}'")
-            audio_part = types.Part.from_bytes(
-                data=content,
-                mime_type=mime_type,
-            )
-            
-            for attempt in range(max_retries):
-                try:
-                    response = await client.aio.models.generate_content(
-                        model=GEMINI_MODEL_NAME,
-                        contents=[
-                            audio_part,
-                            "Transcribe the spoken audio accurately. Output ONLY the raw transcript text. Do not add commentary, meta-talk, or headers."
-                        ]
-                    )
-                    transcription_text = response.text.strip() if response.text else ""
-                    if transcription_text:
-                        print(f"✅ Transcription successful with MIME type: '{mime_type}'")
-                        break  # success
-                    else:
-                        print(f"⚠️ Empty transcription with MIME type: '{mime_type}', trying next...")
-                        break  # Try next MIME type
-                except Exception as e:
-                    # Detect rate‑limit errors (429) or service unavailable (503) via status code or message
-                    err_msg = str(e)
-                    if "429" in err_msg or "Rate limit" in err_msg or "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
-                        wait_seconds = 2 ** attempt
-                        print(f"⚠️ Gemini temporarily unavailable (attempt {attempt + 1}/{max_retries}), waiting {wait_seconds}s before retry. Error: {err_msg[:100]}")
-                        await asyncio.sleep(wait_seconds)
-                        continue
-                    # For other errors (like unsupported MIME type), try next MIME type
-                    print(f"⚠️ Error with MIME type '{mime_type}': {err_msg[:100]}")
-                    break  # Try next MIME type
-            
-            if transcription_text:
-                break  # Success, exit MIME type loop
+        for attempt in range(max_retries):
+            try:
+                audio_part = types.Part.from_bytes(
+                    data=wav_content,
+                    mime_type="audio/wav",  # WAV is guaranteed to work with Gemini
+                )
+                
+                response = await client.aio.models.generate_content(
+                    model=GEMINI_MODEL_NAME,
+                    contents=[
+                        audio_part,
+                        "Transcribe the spoken audio accurately. Output ONLY the raw transcript text. Do not add commentary, meta-talk, or headers."
+                    ]
+                )
+                transcription_text = response.text.strip() if response.text else ""
+                
+                if transcription_text:
+                    print(f"✅ Transcription successful (attempt {attempt + 1})")
+                    break
+                else:
+                    print(f"⚠️ Empty transcription (attempt {attempt + 1})")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1)
+                        
+            except Exception as e:
+                err_msg = str(e)
+                if "429" in err_msg or "Rate limit" in err_msg or "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
+                    wait_seconds = 2 ** attempt
+                    print(f"⚠️ Gemini temporarily unavailable (attempt {attempt + 1}/{max_retries}), waiting {wait_seconds}s. Error: {err_msg[:100]}")
+                    await asyncio.sleep(wait_seconds)
+                    continue
+                # For other errors, don't retry
+                print(f"❌ Transcription error: {err_msg}")
+                raise
         
         if not transcription_text:
-            print("❌ Failed to get transcription after trying all MIME types and retries.")
+            print("❌ Failed to get transcription after all retries.")
             return {"transcription": ""}
         
-        print(f"⏱️ Gemini Transcription ({time.time() - start:.2f}s): '{transcription_text}'")
-
-        # If Gemini returns an empty string, treat it as a failure to inform the client
-        if not transcription_text:
-            print("⚠️ Audio transcription failed: Gemini returned empty result.")
-            return {"transcription": ""}
-
+        print(f"⏱️ Gemini Transcription ({time.time() - start:.2f}s): '{transcription_text[:100]}...'")
         return {"transcription": transcription_text}
 
     except Exception as e:
-        # Log the error and return an empty transcription instead of propagating an HTTP 500.
         print(f"❌ Error in /transcribe: {str(e)}")
         return {"transcription": ""}
+    
+    finally:
+        # Clean up temporary files
+        for path in [temp_input_path, temp_wav_path]:
+            if path and os.path.exists(path):
+                try:
+                    os.unlink(path)
+                    print(f"🗑️ Cleaned up: {path}")
+                except Exception as cleanup_err:
+                    print(f"⚠️ Failed to cleanup {path}: {cleanup_err}")
+
+
+async def _transcribe_with_fallback(content: bytes, content_type: str) -> dict:
+    """
+    Fallback transcription using original content with MIME type fallback.
+    Used when audio conversion fails.
+    """
+    print("🔄 Using fallback transcription (no conversion)...")
+    
+    # Determine best MIME type to try
+    raw_mime = (content_type or "audio/webm").strip().lower()
+    if raw_mime == "video/webm":
+        mime_types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/wav"]
+    elif raw_mime in ["application/octet-stream", ""]:
+        mime_types = ["audio/webm;codecs=opus", "audio/webm", "audio/wav", "audio/mpeg"]
+    elif raw_mime == "audio/webm":
+        mime_types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/wav"]
+    else:
+        mime_types = [raw_mime, "audio/wav", "audio/mpeg"]
+    
+    max_retries = 3
+    
+    for mime_type in mime_types:
+        print(f"🔄 Trying fallback with MIME type: '{mime_type}'")
+        audio_part = types.Part.from_bytes(data=content, mime_type=mime_type)
+        
+        for attempt in range(max_retries):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=GEMINI_MODEL_NAME,
+                    contents=[
+                        audio_part,
+                        "Transcribe the spoken audio accurately. Output ONLY the raw transcript text. Do not add commentary, meta-talk, or headers."
+                    ]
+                )
+                transcription_text = response.text.strip() if response.text else ""
+                if transcription_text:
+                    print(f"✅ Fallback transcription successful with '{mime_type}'")
+                    return {"transcription": transcription_text}
+            except Exception as e:
+                err_msg = str(e)
+                if "429" in err_msg or "Rate limit" in err_msg or "503" in err_msg or "UNAVAILABLE" in err_msg or "high demand" in err_msg:
+                    wait_seconds = 2 ** attempt
+                    print(f"⚠️ Rate limited, waiting {wait_seconds}s...")
+                    await asyncio.sleep(wait_seconds)
+                    continue
+                print(f"⚠️ Fallback error with '{mime_type}': {err_msg[:100]}")
+                break
+    
+    print("❌ All fallback attempts failed")
+    return {"transcription": ""}
 
 @app.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(request: EvaluationRequest):
