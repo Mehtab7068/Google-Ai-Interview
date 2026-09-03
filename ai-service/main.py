@@ -130,18 +130,22 @@ async def transcribe_audio(file: UploadFile = File(...)):
         content = await file.read()
         print(f"📥 Deployed FastAPI received: {file.filename}, Size: {len(content)} bytes, Content-Type: {file.content_type}")
 
-        # Validate content size early to avoid unnecessary Gemini calls
-        if not content or len(content) < 100:
-            print(f"⚠️ File content is missing or too small ({len(content) if content else 0)} bytes).")
+        # Validate that we received some content; avoid rejecting small but valid audio clips
+        if not content:
+            print("⚠️ No file content received.")
             return {"transcription": ""}
 
         # Step 1: Clean MIME type (Strip parameters like ;codecs=opus)
         raw_mime = file.content_type or "audio/webm"
         clean_mime = raw_mime.split(";")[0].strip().lower()
 
-        # Step 2: Map browser video/webm or octet-stream back to supported Gemini audio format
+        # Step 2: Map common browser MIME types to Gemini‑supported audio formats
         if clean_mime in ["video/webm", "application/octet-stream", ""]:
             clean_mime = "audio/webm"
+        # Additional common audio MIME types that Gemini accepts
+        elif clean_mime in ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg"]:
+            # Keep as‑is; Gemini supports these directly
+            pass
 
         print(f"🔧 Sanitized MIME type for Gemini: '{clean_mime}'")
 
@@ -181,11 +185,17 @@ async def transcribe_audio(file: UploadFile = File(...)):
         transcription_text = response.text.strip() if response.text else ""
         print(f"⏱️ Gemini Transcription ({time.time() - start:.2f}s): '{transcription_text}'")
 
+        # If Gemini returns an empty string, treat it as a failure to inform the client
+        if not transcription_text:
+            print("⚠️ Audio transcription failed: Gemini returned empty result.")
+            return {"transcription": ""}
+
         return {"transcription": transcription_text}
 
     except Exception as e:
-        print(f"❌ Error in /transcribe on Render: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the error and return an empty transcription instead of propagating an HTTP 500.
+        print(f"❌ Error in /transcribe: {str(e)}")
+        return {"transcription": ""}
 
 @app.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(request: EvaluationRequest):
