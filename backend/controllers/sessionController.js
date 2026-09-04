@@ -1,50 +1,10 @@
 import asyncHandler from 'express-async-handler';
 import Session from '../models/SessionModel.js';
-import fetch from 'node-fetch'; // npm install node-fetch@2.6.1
 import fs from 'fs';
 import os from 'os';
-import FormData from 'form-data';
 import path from 'path';
 import mongoose from 'mongoose';
-
-const getAudioMimeType = (filename) => {
-    const ext = path.extname(filename || '').toLowerCase();
-    switch (ext) {
-        case '.mp4': return 'audio/mp4';
-        case '.webm': return 'audio/webm';
-        case '.wav': return 'audio/wav';
-        case '.ogg': return 'audio/ogg';
-        case '.aac': return 'audio/aac';
-        case '.mp3': return 'audio/mpeg';
-        default: return 'application/octet-stream';
-    }
-};
-
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || (process.env.NODE_ENV === 'development'
-    ? 'http://localhost:8000'
-    : 'https://google-ai-interview.onrender.com');
-const REMOTE_AI_SERVICE_URL = 'https://google-ai-interview.onrender.com';
-
-const requestAiService = async (endpoint, options = {}) => {
-    const urlsToTry = [AI_SERVICE_URL];
-    if (!process.env.AI_SERVICE_URL && AI_SERVICE_URL.startsWith('http://localhost:8000')) {
-        urlsToTry.push(REMOTE_AI_SERVICE_URL);
-    }
-
-    let lastError = null;
-    for (let index = 0; index < urlsToTry.length; index += 1) {
-        const baseUrl = urlsToTry[index];
-        const requestOptions = index > 0 ? { ...options, signal: undefined } : options;
-        try {
-            return await fetch(`${baseUrl}${endpoint}`, requestOptions);
-        } catch (error) {
-            lastError = error;
-            console.error(`AI service request failed for ${baseUrl}${endpoint}:`, error.message);
-        }
-    }
-
-    throw lastError || new Error(`AI service request failed for ${endpoint}`);
-};
+import { transcribeAudio, evaluateAnswer, generateQuestions } from '../services/aiService.js';
 
 const generateFallbackQuestions = (role, level, count, interviewType) => {
     const questionCount = Number(count) || 5;
@@ -119,44 +79,19 @@ const createSession = asyncHandler(async (req, res) => {
         try {
             pushSocketUpdate(io, userId, session._id, 'AI_GENERATING_QUESTIONS', `Generating ${count} questions for ${role}...`);
 
-            const controller = new AbortController();
-            const timeoutMs = 120000;
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
             let questionsArray = [];
-            let source = 'remote';
+            let source = 'ai';
 
             try {
-                const aiResponse = await requestAiService('/generate-questions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        role,
-                        level,
-                        count,
-                        interview_type: interviewType
-                    }),
-                    signal: controller.signal,
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!aiResponse.ok) {
-                    const errorBody = await aiResponse.text();
-                    throw new Error(`AI Service error: ${aiResponse.status} - ${errorBody}`);
-                }
-
-                const aiData = await aiResponse.json();
+                const questions = await generateQuestions(role, level, count, interviewType);
                 const codingCount = interviewType === 'coding-mix' ? Math.floor(count * 0.2) : 0;
 
-                questionsArray = Array.isArray(aiData.questions)
-                    ? aiData.questions.map((qText, index) => ({
-                        questionText: qText,
-                        questionType: index < codingCount ? 'coding' : 'oral',
-                        isEvaluated: false,
-                        isSubmitted: false,
-                    }))
-                    : [];
+                questionsArray = questions.map((qText, index) => ({
+                    questionText: qText,
+                    questionType: index < codingCount ? 'coding' : 'oral',
+                    isEvaluated: false,
+                    isSubmitted: false,
+                }));
 
                 if (questionsArray.length === 0) {
                     throw new Error('AI returned no questions.');
@@ -255,43 +190,10 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
         try {
             pushSocketUpdate(io, userId, sessionId, 'AI_TRANSCRIBING', `Transcribing audio for Q${questionIdx + 1}...`);
 
-            const filename = path.basename(audioFilePath);
-            const ext = path.extname(filename).toLowerCase() || '.webm';
-            const contentType = getAudioMimeType(filename || `recording${ext}`);
+            transcription = await transcribeAudio(audioFilePath);
 
-            const fileStream = fs.createReadStream(audioFilePath, { autoClose: true });
-
-            const formData = new FormData();
-            formData.append('file', fileStream, {
-                filename: filename.includes('.') ? filename : `recording${ext}`,
-                contentType,
-            });
-
-            // FIXED: Extended AbortController timeout to 120s for Gemini operations
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-            const transResponse = await requestAiService('/transcribe', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    ...formData.getHeaders(),
-                    'Connection': 'keep-alive'
-                },
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!transResponse.ok) {
-                const errorText = await transResponse.text();
-                throw new Error(`Transcription service status ${transResponse.status}: ${errorText}`);
-            }
-
-            const transData = await transResponse.json();
-            transcription = transData.transcription || "";
             if (!transcription.trim()) {
-                throw new Error('Audio transcription returned empty text from AI service.');
+                throw new Error('Audio transcription returned empty text.');
             }
             console.log(`✅ Transcription received for Q${questionIdx + 1}:`, transcription);
 
@@ -315,25 +217,14 @@ const evaluateAnswerAsync = async (io, userId, sessionId, questionIndex, audioFi
     try {
         pushSocketUpdate(io, userId, sessionId, 'AI_EVALUATING', `AI is analyzing Q${questionIdx + 1}...`);
 
-        const evalResponse = await requestAiService('/evaluate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                question: question.questionText,
-                question_type: question.questionType,
-                role: session.role,
-                level: session.level,
-                user_answer: transcription,
-                user_code: code || "",
-            }),
-        });
-
-        if (!evalResponse.ok) {
-            const pythonErrorText = await evalResponse.text();
-            throw new Error(`AI Service returned status ${evalResponse.status}: ${pythonErrorText}`);
-        }
-
-        const evalData = await evalResponse.json();
+        const evalData = await evaluateAnswer(
+            question.questionText,
+            question.questionType,
+            session.role,
+            session.level,
+            transcription,
+            code || ""
+        );
 
         // --- Phase 3: Save Evaluation Result ---
         question.userAnswerText = transcription;
