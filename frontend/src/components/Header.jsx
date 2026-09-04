@@ -39,7 +39,7 @@ const Header = () => {
         <nav className="hidden md:flex items-center gap-6">
           {user ? (
             <>
-              <Link to="/" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/') ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white border-b-2 border-transparent'}`}>Dashboard</Link>
+              <Link to="/dashboard" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/dashboard') ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white border-b-2 border-transparent'}`}>Dashboard</Link>
               <Link to="/profile" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/profile') ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white border-b-2 border-transparent'}`}>Profile</Link>
               <div className="flex items-center gap-2 rounded-full bg-slate-900/60 px-4 py-2 border border-slate-800 text-slate-300 shadow-inner">
                 <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
@@ -75,7 +75,7 @@ const Header = () => {
                   <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
                   <span className="text-sm font-black uppercase tracking-[0.2em] text-slate-200">{user.name}</span>
                 </div>
-                <Link to="/" onClick={() => setIsMenuOpen(false)} className={`block rounded-2xl border border-slate-850 bg-slate-900/30 px-5 py-4 text-base font-black uppercase tracking-[0.2em] ${isActive('/') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Dashboard</Link>
+                <Link to="/dashboard" onClick={() => setIsMenuOpen(false)} className={`block rounded-2xl border border-slate-850 bg-slate-900/30 px-5 py-4 text-base font-black uppercase tracking-[0.2em] ${isActive('/dashboard') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Dashboard</Link>
                 <Link to="/profile" onClick={() => setIsMenuOpen(false)} className={`block rounded-2xl border border-slate-850 bg-slate-900/30 px-5 py-4 text-base font-black uppercase tracking-[0.2em] ${isActive('/profile') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Profile</Link>
                 <button onClick={onLogout} className="w-full rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 py-4 text-xs font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-rose-500/20">Logout</button>
               </>
