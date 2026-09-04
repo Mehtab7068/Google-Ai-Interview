@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { login, googleLogin, reset } from '../features/auth/authSlice'
 import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { GoogleLogin } from '@react-oauth/google'
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 
 const Login = () => {
   const [formData, setFormData] = useState({
