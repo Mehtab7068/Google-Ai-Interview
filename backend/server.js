@@ -3,6 +3,7 @@ import http from "http";
 import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { Server } from "socket.io";
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -15,6 +16,7 @@ connectDB();
 
 const app = express();
 const server = http.createServer(app);
+app.set("trust proxy", 1);
 
 /* =========================================================
    1. SECURITY HEADERS (MUST BE FIRST)
@@ -49,6 +51,25 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { message: "Too many requests. Please try again later." },
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { message: "AI request limit reached. Please wait a moment before trying again." },
+});
+
+app.use("/api", apiLimiter);
+app.use("/api/sessions", aiLimiter);
 
 // Explicitly handle HTTP OPTIONS preflight requests for all endpoints
 app.options(/.*/, cors(corsOptions));

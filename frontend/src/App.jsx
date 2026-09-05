@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import useSocket from './hooks/useSocket';
 import { ToastContainer } from 'react-toastify';
@@ -6,12 +6,12 @@ import Header from './components/Header';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PrivateRoute from './components/PrivateRoute';
-import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile';
-import InterviewRunner from './pages/InterviewRunner';
-import SessionReview from './pages/SessionReview';
 import NotFound from './pages/NotFound';
-import Landing from './pages/Landing';
+const Landing = lazy(() => import('./pages/Landing'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Profile = lazy(() => import('./pages/Profile'));
+const InterviewRunner = lazy(() => import('./pages/InterviewRunner'));
+const SessionReview = lazy(() => import('./pages/SessionReview'));
 
 const App = () => {
   useSocket();
@@ -20,8 +20,9 @@ const App = () => {
     <div className='min-h-screen bg-[#030712] text-slate-100 relative overflow-hidden font-sans selection:bg-indigo-500/30 selection:text-white'>
       <div className='relative z-10 flex flex-col min-h-screen'>
         <Header />
-        <main className='flex-grow w-full'>
-          <Routes>
+          <main className='flex-grow w-full'>
+            <Suspense fallback={<div className='flex min-h-[60vh] items-center justify-center text-sm uppercase tracking-[0.25em] text-slate-400'>Loading workspace...</div>}>
+              <Routes>
             {/* Public routes - accessible to everyone */}
             <Route path='/' element={<Landing />} />
             <Route path='/login' element={<Login />} />
@@ -37,7 +38,8 @@ const App = () => {
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
+              </Routes>
+            </Suspense>
         </main>
       </div>
       <ToastContainer

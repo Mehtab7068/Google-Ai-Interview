@@ -27,14 +27,25 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
     if (!file) return cb(null, true);
 
-    if (
-        file.mimetype.startsWith("audio/") ||
-        file.mimetype.startsWith("video/") ||
-        file.mimetype === "application/octet-stream"
-    ) {
+    const allowedMimeTypes = new Set([
+        "audio/aac",
+        "audio/flac",
+        "audio/m4a",
+        "audio/mp4",
+        "audio/mpeg",
+        "audio/ogg",
+        "audio/wav",
+        "audio/webm",
+        "video/webm",
+        "application/octet-stream",
+    ]);
+    const allowedExtensions = new Set([".aac", ".flac", ".m4a", ".mp3", ".mp4", ".ogg", ".wav", ".webm"]);
+    const extension = path.extname(file.originalname || "").toLowerCase();
+
+    if (allowedMimeTypes.has(file.mimetype) && allowedExtensions.has(extension)) {
         cb(null, true);
     } else {
-        cb(new Error("Invalid file type. Only audio uploads are allowed!"), false);
+        cb(new Error("Invalid audio file. Use WAV, MP3, OGG, M4A, AAC, FLAC, MP4, or WebM."), false);
     }
 };
 
