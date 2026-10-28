@@ -72,7 +72,7 @@ const Login = () => {
 
   return (
     <div className='flex justify-center items-center min-h-[80vh] px-4 py-8 sm:px-6 lg:px-8'>
-      <div className='w-full max-w-lg bg-slate-900/60 backdrop-blur-xl p-8 sm:p-12 border border-slate-850 rounded-[2.5rem] shadow-2xl relative overflow-hidden group hover:border-slate-800 transition-all duration-550'>
+      <div className='motion-card w-full max-w-lg bg-slate-900/60 backdrop-blur-xl p-8 sm:p-12 border border-slate-850 rounded-[2.5rem] shadow-2xl relative overflow-hidden group hover:border-slate-800 transition-all duration-550'>
         {/* Decorative corner glows */}
         <div className='absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/15 transition-all duration-500' />
         <div className='absolute -bottom-24 -left-24 w-48 h-48 bg-violet-500/5 rounded-full blur-3xl group-hover:bg-violet-500/10 transition-all duration-500' />

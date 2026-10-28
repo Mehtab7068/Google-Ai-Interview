@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useSelector, useDispatch } from "react-redux"
 import { logout, reset } from "../features/auth/authSlice"
+import ThemePicker from "./ThemePicker"
 
 const Header = () => {
   const navigate = useNavigate();
@@ -37,8 +38,9 @@ const Header = () => {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6">
-          {user ? (
-            <>
+          <div className="flex items-center gap-6">
+            {user ? (
+              <>
               <Link to="/dashboard" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/dashboard') ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white border-b-2 border-transparent'}`}>Dashboard</Link>
               <Link to="/profile" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/profile') ? 'text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-white border-b-2 border-transparent'}`}>Profile</Link>
               <div className="flex items-center gap-2 rounded-full bg-slate-900/60 px-4 py-2 border border-slate-800 text-slate-300 shadow-inner">
@@ -46,13 +48,15 @@ const Header = () => {
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{user.name.split(' ')[0]}</span>
               </div>
               <button onClick={onLogout} className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-5 py-2 text-xs font-black uppercase tracking-[0.2em] text-white shadow-md shadow-rose-500/20 transition hover:brightness-110 active:scale-95">Logout</button>
-            </>
-          ) : (
-            <div className="flex items-center gap-6">
-              <Link to="/login" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/login') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Login</Link>
-              <Link to="/register" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/register') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Register</Link>
-            </div>
-          )}
+              </>
+            ) : (
+              <>
+                <Link to="/login" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/login') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Login</Link>
+                <Link to="/register" className={`text-xs font-bold uppercase tracking-[0.25em] transition ${isActive('/register') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Register</Link>
+              </>
+            )}
+          </div>
+          <ThemePicker />
         </nav>
 
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-indigo-400 transition-all">
@@ -85,6 +89,9 @@ const Header = () => {
                 <Link to="/register" onClick={() => setIsMenuOpen(false)} className={`block rounded-2xl border border-slate-850 bg-slate-900/30 px-5 py-4 text-base font-black uppercase tracking-[0.2em] ${isActive('/register') ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`}>Register</Link>
               </>
             )}
+            <div className="border-t border-slate-800 pt-4">
+              <ThemePicker />
+            </div>
           </div>
         </div>
       )}

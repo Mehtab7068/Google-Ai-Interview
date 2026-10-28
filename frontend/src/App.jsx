@@ -1,5 +1,5 @@
-import React, { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import useSocket from './hooks/useSocket';
 import { ToastContainer } from 'react-toastify';
 import Header from './components/Header';
@@ -15,14 +15,16 @@ const SessionReview = lazy(() => import('./pages/SessionReview'));
 
 const App = () => {
   useSocket();
+  const location = useLocation();
 
   return (
-    <div className='min-h-screen bg-[#030712] text-slate-100 relative overflow-hidden font-sans selection:bg-indigo-500/30 selection:text-white'>
+    <div className='app-shell min-h-screen text-slate-100 relative overflow-hidden font-sans selection:bg-indigo-500/30 selection:text-white'>
       <div className='relative z-10 flex flex-col min-h-screen'>
         <Header />
           <main className='flex-grow w-full'>
             <Suspense fallback={<div className='flex min-h-[60vh] items-center justify-center text-sm uppercase tracking-[0.25em] text-slate-400'>Loading workspace...</div>}>
-              <Routes>
+              <div key={location.pathname} className="route-transition">
+                <Routes>
             {/* Public routes - accessible to everyone */}
             <Route path='/' element={<Landing />} />
             <Route path='/login' element={<Login />} />
@@ -38,7 +40,8 @@ const App = () => {
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
-              </Routes>
+                </Routes>
+              </div>
             </Suspense>
         </main>
       </div>

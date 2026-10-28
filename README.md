@@ -55,6 +55,8 @@ Use the deployed application here: [https://google-ai-interview.vercel.app/](htt
 - Add analytics dashboards for long-term interview progress.
 - Add mock/demo mode for testing without consuming AI API quota.
 
+The frontend includes persistent Midnight, Ocean, Sunset, and Forest accent themes, plus animated page transitions and motion-aware styling.
+
 ## Local Setup
 
 ### AI service

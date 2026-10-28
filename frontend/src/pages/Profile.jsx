@@ -69,7 +69,7 @@ const Profile = () => {
 
   return (
     <div className='min-h-[80vh] max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-12 pb-24'>
-      <div className='bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] shadow-2xl p-8 sm:p-12 border border-slate-850 relative overflow-hidden group hover:border-slate-800 transition-all duration-500'>
+      <div className='motion-card bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] shadow-2xl p-8 sm:p-12 border border-slate-850 relative overflow-hidden group hover:border-slate-800 transition-all duration-500'>
         {/* Ambient glow backgrounds */}
         <div className='absolute -top-32 -right-32 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl' />
         <div className='absolute -bottom-32 -left-32 w-64 h-64 bg-violet-500/5 rounded-full blur-3xl' />

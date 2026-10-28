@@ -158,7 +158,7 @@ const Landing = () => {
                                 ].map((feature, index) => (
                                     <div
                                         key={feature.title}
-                                        className='group relative p-6 sm:p-8 bg-slate-900/40 backdrop-blur-xl border border-slate-850 rounded-3xl hover:border-indigo-500/30 hover:bg-slate-900/60 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4 duration-500'
+                                        className='motion-card group relative p-6 sm:p-8 bg-slate-900/40 backdrop-blur-xl border border-slate-850 rounded-3xl hover:border-indigo-500/30 hover:bg-slate-900/60 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4 duration-500'
                                         style={{ animationDelay: `${index * 100}ms` }}
                                     >
                                         <div className='absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl' />

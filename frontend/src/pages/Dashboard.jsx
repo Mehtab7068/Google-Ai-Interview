@@ -106,7 +106,7 @@ const Dashboard = () => {
   return (
     <div className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 py-6 sm:py-12 space-y-8 sm:space-y-12">
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <div className="rounded-[2rem] border border-slate-850 bg-slate-900/40 p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden group hover:border-slate-800 transition-all duration-500">
+        <div className="motion-card rounded-[2rem] border border-slate-850 bg-slate-900/40 p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden group hover:border-slate-800 transition-all duration-500">
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
           
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between relative z-10">
@@ -136,7 +136,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <aside className="rounded-[2rem] border border-slate-855 bg-[#030712]/60 p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden group hover:border-slate-800 transition-all duration-500">
+        <aside className="motion-card rounded-[2rem] border border-slate-855 bg-[#030712]/60 p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden group hover:border-slate-800 transition-all duration-500">
           <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-violet-500/5 rounded-full blur-3xl" />
           
           <div className="flex items-center justify-between gap-4 relative z-10">

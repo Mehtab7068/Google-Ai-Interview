@@ -1,5 +1,3 @@
-﻿import React from 'react';
-
 const SessionCard = ({ session, onClick, onDelete }) => {
   const sessionId = session._id || session.sessionId || '';
   const createdAt = session.createdAt
@@ -17,7 +15,7 @@ const SessionCard = ({ session, onClick, onDelete }) => {
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-3xl border border-slate-850 bg-slate-900/40 p-6 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-slate-800 hover:shadow-2xl">
+    <div className="motion-card group relative overflow-hidden rounded-3xl border border-slate-850 bg-slate-900/40 p-6 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-slate-800 hover:shadow-2xl">
       <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-80" />
       <button
         type="button"
