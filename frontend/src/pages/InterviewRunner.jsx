@@ -47,7 +47,7 @@ const ROLE_LANGUAGE_MAP = {
   "Product Manager": "markdown"
 };
 
-function InterviewRunner() {
+function InterviewRunner({ mode = 'dark' }) {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -475,7 +475,7 @@ function InterviewRunner() {
             <MonacoEditor
               height="100%"
               language={selectedLanguage}
-              theme="vs-dark"
+              theme={mode === 'dark' ? 'vs-dark' : 'light'}
               value={currentDraft.code || ''}
               onChange={updateDraftCode}
               options={{

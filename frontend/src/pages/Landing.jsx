@@ -1,14 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 
 const Landing = () => {
-    const navigate = useNavigate()
     const { user, isLoading: authLoading } = useSelector((state) => state.auth)
 
-    // If already logged in, redirect to dashboard
     if (user && !authLoading) {
-        navigate('/dashboard')
-        return null
+        return <Navigate to="/dashboard" replace />
     }
 
     return (

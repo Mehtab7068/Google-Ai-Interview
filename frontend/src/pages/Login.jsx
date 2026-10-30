@@ -5,7 +5,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 
-const Login = () => {
+const Login = ({ mode = 'dark' }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -18,9 +18,7 @@ const Login = () => {
 
   const { user, isLoading, isError, isSuccess, message } = useSelector((state) => state.auth)
 
-  const googleClientId =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) ||
-    process.env.REACT_APP_GOOGLE_CLIENT_ID
+  const googleClientId = import.meta.env?.VITE_GOOGLE_CLIENT_ID || ''
 
   useEffect(() => {
     if (isError) {
@@ -138,7 +136,7 @@ const Login = () => {
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={() => toast.error('Google login failed')}
-              theme="filled_dark"
+              theme={mode === 'dark' ? 'filled_dark' : 'outline'}
               size="large"
               width="100%"
               text="continue_with"

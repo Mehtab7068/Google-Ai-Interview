@@ -5,6 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ai interviewer</title>
+    <script>
+      try {
+        const mode = localStorage.getItem('ai-interviewer-mode')
+        document.documentElement.dataset.mode = mode === 'light' ? 'light' : 'dark'
+      } catch {
+        document.documentElement.dataset.mode = 'dark'
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

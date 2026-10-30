@@ -57,7 +57,7 @@ const formatIdealAnswer = (text) => {
     }
 };
 
-function SessionReview() {
+function SessionReview({ mode = 'dark' }) {
     const { sessionId } = useParams();
     const dispatch = useDispatch();
     const { activeSession, isLoading } = useSelector(state => state.sessions);
@@ -144,23 +144,23 @@ function SessionReview() {
                             plugins: { 
                                 legend: { display: false },
                                 tooltip: {
-                                    backgroundColor: '#0f172a',
-                                    borderColor: '#1e293b',
+                                    backgroundColor: mode === 'dark' ? '#0f172a' : '#ffffff',
+                                    borderColor: mode === 'dark' ? '#1e293b' : '#cbd5e1',
                                     borderWidth: 1,
-                                    titleColor: '#f8fafc',
-                                    bodyColor: '#e2e8f0',
+                                    titleColor: mode === 'dark' ? '#f8fafc' : '#172033',
+                                    bodyColor: mode === 'dark' ? '#e2e8f0' : '#334155',
                                 }
                             },
                             scales: {
                                 y: { 
                                     beginAtZero: true, 
                                     max: 100, 
-                                    grid: { color: '#1e293b' },
-                                    ticks: { color: '#94a3b8' }
+                                    grid: { color: mode === 'dark' ? '#1e293b' : '#e2e8f0' },
+                                    ticks: { color: mode === 'dark' ? '#94a3b8' : '#64748b' }
                                 },
                                 x: { 
                                     grid: { display: false },
-                                    ticks: { color: '#94a3b8' }
+                                    ticks: { color: mode === 'dark' ? '#94a3b8' : '#64748b' }
                                 }
                             }
                         }}

@@ -6,7 +6,7 @@ html {
 
 body {
   @apply text-slate-100;
-  background: #030712;
+  background: var(--app-background);
 }
 
 .app-shell {
@@ -14,8 +14,9 @@ body {
   background:
     radial-gradient(ellipse at 12% 0%, var(--ambient-primary), transparent 38rem),
     radial-gradient(ellipse at 90% 30%, var(--ambient-secondary), transparent 35rem),
-    #030712;
-  transition: background-color 400ms ease;
+    var(--app-background);
+  color: var(--app-foreground);
+  transition: background-color 400ms ease, color 300ms ease;
 }
 
 .app-shell::before,
@@ -43,55 +44,79 @@ body {
   mask-image: linear-gradient(to bottom, black, transparent 80%);
 }
 
-html[data-theme="midnight"] {
+html[data-mode="dark"] {
   color-scheme: dark;
+  --app-background: #030712;
+  --app-foreground: #f1f5f9;
+  --app-header-background: rgb(3 7 18 / 88%);
+  --app-mobile-background: #030712;
   --ambient-primary: rgb(99 102 241 / 13%);
   --ambient-secondary: rgb(217 70 239 / 8%);
 }
 
-html[data-theme="ocean"] {
-  color-scheme: dark;
-  --color-indigo-400: #67e8f9;
-  --color-indigo-500: #06b6d4;
-  --color-indigo-600: #0891b2;
-  --color-violet-400: #7dd3fc;
-  --color-violet-500: #0ea5e9;
-  --color-violet-600: #0284c7;
-  --color-fuchsia-400: #a5f3fc;
-  --color-fuchsia-500: #22d3ee;
-  --color-fuchsia-600: #06b6d4;
-  --ambient-primary: rgb(6 182 212 / 13%);
-  --ambient-secondary: rgb(14 165 233 / 9%);
+html[data-mode="light"] {
+  color-scheme: light;
+  --app-background: #f5f7fb;
+  --app-foreground: #172033;
+  --app-header-background: rgb(255 255 255 / 90%);
+  --app-mobile-background: #ffffff;
+  --ambient-primary: rgb(99 102 241 / 10%);
+  --ambient-secondary: rgb(168 85 247 / 7%);
+  --color-slate-50: #172033;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #334155;
+  --color-slate-300: #475569;
+  --color-slate-400: #64748b;
+  --color-slate-500: #64748b;
+  --color-slate-600: #64748b;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-850: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #ffffff;
+  --color-indigo-400: #4338ca;
+  --color-indigo-500: #4f46e5;
+  --color-indigo-600: #4338ca;
+  --color-violet-400: #6d28d9;
+  --color-violet-500: #7c3aed;
+  --color-violet-600: #6d28d9;
+  --color-fuchsia-400: #a21caf;
+  --color-fuchsia-500: #c026d3;
+  --color-fuchsia-600: #a21caf;
+  --color-emerald-400: #047857;
+  --color-rose-400: #be123c;
+  --color-pink-400: #be185d;
+  --color-amber-400: #b45309;
 }
 
-html[data-theme="sunset"] {
-  color-scheme: dark;
-  --color-indigo-400: #fdba74;
-  --color-indigo-500: #f97316;
-  --color-indigo-600: #ea580c;
-  --color-violet-400: #fda4af;
-  --color-violet-500: #fb7185;
-  --color-violet-600: #e11d48;
-  --color-fuchsia-400: #fecdd3;
-  --color-fuchsia-500: #f43f5e;
-  --color-fuchsia-600: #e11d48;
-  --ambient-primary: rgb(249 115 22 / 12%);
-  --ambient-secondary: rgb(244 63 94 / 9%);
+.app-header {
+  background: var(--app-header-background);
+  border-color: var(--color-slate-800);
+  color: var(--app-foreground);
 }
 
-html[data-theme="forest"] {
-  color-scheme: dark;
-  --color-indigo-400: #86efac;
-  --color-indigo-500: #22c55e;
-  --color-indigo-600: #16a34a;
-  --color-violet-400: #bef264;
-  --color-violet-500: #84cc16;
-  --color-violet-600: #65a30d;
-  --color-fuchsia-400: #bbf7d0;
-  --color-fuchsia-500: #4ade80;
-  --color-fuchsia-600: #22c55e;
-  --ambient-primary: rgb(34 197 94 / 12%);
-  --ambient-secondary: rgb(132 204 22 / 8%);
+.app-mobile-menu {
+  background: var(--app-mobile-background);
+  border-color: var(--color-slate-800);
+}
+
+html[data-mode="light"] .app-shell [class*="bg-[#030712]"] {
+  background-color: rgb(255 255 255 / 86%);
+}
+
+html[data-mode="light"] .app-shell [class*="from-[#030712]"] {
+  background-image: linear-gradient(135deg, #f8fafc, #eef2ff 55%, #fdf4ff);
+}
+
+html[data-mode="light"] .app-shell .text-white {
+  color: #172033 !important;
+}
+
+html[data-mode="light"] .app-shell [class*="bg-gradient-to-"].text-white,
+html[data-mode="light"] .app-shell [class*="bg-gradient-to-"].text-white *,
+html[data-mode="light"] .app-shell button.text-white,
+html[data-mode="light"] .app-shell a.text-white {
+  color: #ffffff !important;
 }
 
 .route-transition {
